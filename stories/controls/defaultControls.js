@@ -371,6 +371,16 @@ export function defaultControls() {
                 subcategory: "Metrics"
             },
         },
+        displayMetricSpheres: {
+            name: "displayMetricSpheres",
+            defaultValue: true,
+            description: "Display or not all metrics spheres",
+            control: "boolean",
+            table: {
+                category: "Labels",
+                subcategory: "Metrics"
+            },
+        },
         // layer label configuration
         layersLabelsRenderingMode: {
             name: "layersLabelsRenderingMode",
@@ -590,7 +600,7 @@ export function defaultControls() {
             description: "Change the low status color",
             table: {
                 category: "Status",
-                subcategory: "Colors"
+                subcategory: "Sides Colors"
             },
         },
         statusColorMed: {
@@ -600,7 +610,7 @@ export function defaultControls() {
             description: "change the med status color",
             table: {
                 category: "Status",
-                subcategory: "Colors"
+                subcategory: "Sides Colors"
             },
         },
         statusColorHigh: {
@@ -610,7 +620,7 @@ export function defaultControls() {
             description: "Change the high status color",
             table: {
                 category: "Status",
-                subcategory: "Colors"
+                subcategory: "Sides Colors"
             },
         },
         statusColorVeryHigh: {
@@ -620,7 +630,37 @@ export function defaultControls() {
             description: "Change the very high status color",
             table: {
                 category: "Status",
-                subcategory: "Colors"
+                subcategory: "Sides Colors"
+            },
+        },
+        sphereColorLow: {
+            name: "sphereColorLow",
+            defaultValue: "#319b31",
+            control: "color",
+            description: "change the med status color",
+            table: {
+                category: "Status",
+                subcategory: "Spheres Colors"
+            },
+        },
+        sphereColorMed: {
+            name: "sphereColorMed",
+            defaultValue: "#f3c60a",
+            control: "color",
+            description: "Change the high status color",
+            table: {
+                category: "Status",
+                subcategory: "Spheres Colors"
+            },
+        },
+        sphereColorHigh: {
+            name: "sphereColorHigh",
+            defaultValue: "#FF0000",
+            control: "color",
+            description: "Change the very high status color",
+            table: {
+                category: "Status",
+                subcategory: "Spheres Colors"
             },
         },
         // range

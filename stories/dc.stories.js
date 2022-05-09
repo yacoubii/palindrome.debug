@@ -2,6 +2,7 @@ import { dcBasicConfiguration } from '../src/data_structures_examples/dc_BasicCo
 import { dcCustomConfiguration } from '../src/data_structures_examples/dc_CustomConfiguration';
 import { dcEnergeticEfficiency } from '../src/data_structures_examples/dc_EnergeticEfficiency';
 import { dcMy3DObjectExample } from '../src/data_structures_examples/dc_My3DObjectExample';
+import {dcPyramidOfMaslows} from '../src/data_structures_examples/dc_pyramid_of_maslows';
 import { dcFullMap } from '../src/data_structures_examples/dc_FullMap';
 import { defaultControls } from './controls/defaultControls';
 import { createPalindrome } from './controls/createPalindrome';
@@ -9,6 +10,11 @@ import { createPalindrome } from './controls/createPalindrome';
 export default {
     title: 'Use Cases/Palindrome/Data Center example',
     argTypes: defaultControls(),
+};
+
+export const PyramidOfMaslows = createPalindrome.bind({});
+PyramidOfMaslows.args = {
+    data: dcPyramidOfMaslows(),
 };
 
 export const BasicConfiguration = createPalindrome.bind({});

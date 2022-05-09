@@ -105,19 +105,30 @@ Configuration parameters and their options
 | mockupData | Make dynamic the data | Boolean|True | -|
 
 ## How to add your usecase ?
-
-Todo : add a step by step integration documentation
+- First you need to create your configuration file under `src/data_structures_examples` folder. The name of the file should begin with the usecase name as follows: `ucName_rest.js`. In that file you should export a function that returns a json object containing all your metrics.
+- Next you should create a file named `ucName.stories.js` under `src/stories`. That file contains  :
+```javascript
+export default {
+    title: 'Debug/Palindrome/Examples',
+    argTypes: defaultControls(),
+};
+```
+The title value contains the path where your usecases will be stored. 
 
 ## Connect with remote data source
 
-Todo : add integration details
-(Default option)
+If your have to import your data from a remote data source then, in the index.js file change the "default-data.json" file to your url address that returns the actual file.
+
+```javascript
+const fileContent = new Request("url");
+```
 
 ## Contribute
 
 Simply open a pull request over the repository to describe your changes.
 
 ## Credits
+- Mohamed Ali YACOUBI @mohamed.yacoubi
 - Rnd Team @ Alter Way
 - Koku Ulrich GBLOKPO @koku-ulrich.gblokpo
 - Farooque Mustafa @farooquemustafa

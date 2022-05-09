@@ -1,4 +1,4 @@
-"layer-0":{
+{"layer-0":{
   "metrics": {
     "0A": {
       "label": "0A",
@@ -24,7 +24,7 @@
       "max": 100,
       "current": 50
     },
-    "0C": { 
+    "0D": { 
       "label": "0C",
       "unit": "number",
       "min": 0,
@@ -65,7 +65,7 @@
       "max": 100,
       "current": 50
     },
-    "0C1": { 
+    "0D1": { 
       "label": "0C1",
       "unit": "number",
       "min": 0,
@@ -79,4 +79,5 @@
     "defaultColor": "green",
     "publicColorOption": "random calls function to pick a color"
   }
+}
 }

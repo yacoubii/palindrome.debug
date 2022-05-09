@@ -4,6 +4,9 @@ import { CSS2DObject } from 'three-css2drender';
 import { GradientedTriangle, Triangle, SimpleLine, DasheLine } from './ThreeGeometryObjects';
 import { initThreeObjects } from './ThreeJSBasicObjects';
 import { dataGenerator } from './dataGenerator';
+import { EffectComposer } from "/node_modules/three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "/node_modules/three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "/node_modules/three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 /**
  * @param {HTMLElement} parentElement perent element of three's renderer element
@@ -26,6 +29,23 @@ export default (function(parentElement, conf) {
             camera
         } = initThreeObjects();
         scene.background = new THREE.Color( "#e3e3e3" );
+        //scene.background = new THREE.Color( "black");
+        /*const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        1.5,
+        0.4,
+        0.85
+        );
+        bloomPass.threshold = 0;
+        bloomPass.strength = 2; //intensity of glow
+        bloomPass.radius = 0;
+        var bloomComposer = new EffectComposer(renderer);
+        
+        bloomComposer.setSize(window.innerWidth, window.innerHeight);
+        bloomComposer.renderToScreen = true;
+        bloomComposer.addPass(renderScene);
+        bloomComposer.addPass(bloomPass);*/
 
         
         let metricParameters = {},
@@ -77,6 +97,9 @@ export default (function(parentElement, conf) {
 
         run(fileContent);
 
+
+
+
         /**
          * Main function
          *
@@ -121,6 +144,8 @@ export default (function(parentElement, conf) {
                 // configuration text parameters
                 createLabels(data);
             }
+
+
             render(data);
             cameraVewOptions(meshs);
         }
@@ -394,7 +419,12 @@ export default (function(parentElement, conf) {
          * @param {string} labelValue label value
          * @param {string} labelUnit the unit of label
          */
-        function getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit) {
+        function getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit, metricData) {
+            if(metricData && labelUnit==='%'){
+                //percentage handle
+                console.log(metricData)
+                labelValue=(labelValue/metricData.max)*100;
+            }
             let data = '';
             if (conf.metricsLabelsRenderingFormat === "Text") {
                 if (conf.metricsLabelsStructure.indexOf("Name") != -1) {
@@ -459,7 +489,8 @@ export default (function(parentElement, conf) {
          * @param {string} labelUnit the unit of label3D
          */
         function create2DMetricsLabels(key, labelName, labelType, labelValue, metricIndex, labelUnit) {
-            let data = getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit),
+            //console.log(labelValue);
+            let data = getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit,null),
                 div = document.createElement('div');
             div.className = 'label ' + labelName;
             div.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
@@ -493,7 +524,8 @@ export default (function(parentElement, conf) {
         function create3DMetricsLabels(key, labelName, labelType, labelValue, metricIndex, labelUnit) {
             let texture = new THREE.Texture(),
                 textureImage,
-                data = getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit);
+                data = getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit,null);
+            
             labelDiv[labelName] = document.createElement('div');
             labelDiv[labelName].className = 'label ' + labelName;
             labelDiv[labelName].setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
@@ -501,6 +533,7 @@ export default (function(parentElement, conf) {
                 // canvas contents will be used for a texture
                 if (conf.metricsLabels3DRenderingMode === 'Canvas') {
                     // canvas contents will be used for a texture
+                    
                     textureImage = createLabelCanvas(labelName, data, metricParameters);
                 } else if (conf.metricsLabels3DRenderingMode === 'Svg') {
                     labelDiv[labelName].appendChild(createHtmlText(data, false, false, metricParameters));
@@ -516,14 +549,18 @@ export default (function(parentElement, conf) {
             texture.image = textureImage;
             texture.needsUpdate = true;
             texture.minFilter = THREE.NearestFilter;
+            
             let spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
                 metricsLabels = new THREE.Sprite(spriteMaterial);
+                //TODO: lenna
             metricsLabels.scale.set(2 * metricParameters["labelSize"], 1 * metricParameters["labelSize"], metricParameters["labelSize"]);
             metricsLabels.key = key;
             metricsLabels.name = labelName;
             metricsLabels.dataType = labelType;
             metricsLabels.metricIndex = metricIndex;
             metricsLabels.labelUnit = labelUnit;
+            //console.log("data",metricsLabels);
+            
             return metricsLabels;
 
             //todo : reimplement so it does not interfere with 'text sprite' method
@@ -607,22 +644,32 @@ export default (function(parentElement, conf) {
                             break;
                         } else {
                             metricLabelsIds.push(key)
-                            
+                            let current = value.current;
+                            let min = value.min;
+                            let med = value.med;
+                            let max = value.max;
+                            if(value.unit==='%'){
+                                current=(value.current/value.max)*100;
+                                min=(value.min/value.max)*100;
+                                med=(value.med/value.max)*100;
+                                max=(value.max/value.max)*100;
+                                
+                            }
                             if (conf.metricsLabelsRenderingMode === "2D") {
-                                scene.add(create2DMetricsLabels(key, value.label, 'current', value.current, metricIndex, value.unit));
+                                scene.add(create2DMetricsLabels(key, value.label, 'current', current, metricIndex, value.unit));
                                 if (conf.displayAllMetricsLabels) {
-                                    scene.add(create2DMetricsLabels(key, value.label, 'min', value.min, metricIndex, value.unit));
-                                    scene.add(create2DMetricsLabels(key, value.label, 'med', value.med, metricIndex, value.unit));
-                                    scene.add(create2DMetricsLabels(key, value.label, 'max', value.max, metricIndex, value.unit));
+                                    scene.add(create2DMetricsLabels(key, value.label, 'min', min, metricIndex, value.unit));
+                                    scene.add(create2DMetricsLabels(key, value.label, 'med', med, metricIndex, value.unit));
+                                    scene.add(create2DMetricsLabels(key, value.label, 'max', max, metricIndex, value.unit));
                                 }
                             } else if (conf.metricsLabelsRenderingMode === "3D") {
-                                scene.add(create3DMetricsLabels(key, value.label, 'current', value.current, metricIndex, value.unit));
+                                scene.add(create3DMetricsLabels(key, value.label, 'current', current, metricIndex, value.unit));
                                 
 
                                 if (conf.displayAllMetricsLabels) {
-                                    scene.add(create3DMetricsLabels(key, value.label, 'min', value.min, metricIndex, value.unit));
-                                    scene.add(create3DMetricsLabels(key, value.label, 'med', value.med, metricIndex, value.unit));
-                                    scene.add(create3DMetricsLabels(key, value.label, 'max', value.max, metricIndex, value.unit));
+                                    scene.add(create3DMetricsLabels(key, value.label, 'min', min, metricIndex, value.unit));
+                                    scene.add(create3DMetricsLabels(key, value.label, 'med', med, metricIndex, value.unit));
+                                    scene.add(create3DMetricsLabels(key, value.label, 'max', max, metricIndex, value.unit));
                                 }
                             }
                         }
@@ -654,6 +701,7 @@ export default (function(parentElement, conf) {
          * Create and update every mesh to match the latest data
          */
         function updateMeshs() {
+
             if (conf.mockupData) {
                 newData = dataIterator.next().value;
             }
@@ -708,6 +756,8 @@ export default (function(parentElement, conf) {
                 //update metrics label, layers label and their positions
                 let sortedMetricsLabels = scene.children.filter((item) => item.metricIndex === metricIndex),
                     sortedLayersLabels = scene.children.filter((item) => item.layerIndex === layerIndex);
+                
+                
 
                 // update metrics
                 if (conf.displayMetricsLabels) {
@@ -715,6 +765,7 @@ export default (function(parentElement, conf) {
                         const metricsLabels = sortedMetricsLabels[i];
                         if (metrics[metricsLabels.key]) {
                             const metricData = metrics[metricsLabels.key];
+                            console.log(metricData)
                             const metricsLabelsName = metricData.label;
                             const metricsLabelsType = metricsLabels.dataType;
                             let metricsLabelsUnit = metricsLabels.labelUnit;
@@ -725,7 +776,9 @@ export default (function(parentElement, conf) {
                                 debug = false;
                             }
                             // update label data
-                            metricsLabels.data = getMetricsLabelsStructureData(metricsLabelsName, metricsLabelsType, metricsLabelsValue, metricsLabelsUnit)
+                            
+                            
+                            metricsLabels.data = getMetricsLabelsStructureData(metricsLabelsName, metricsLabelsType, metricsLabelsValue, metricsLabelsUnit, metricData)
                             let x = labelPositions[0],
                                 y = labelPositions[2],
                                 z = labelPositions[1];
@@ -1005,8 +1058,9 @@ export default (function(parentElement, conf) {
                 //todo number of shapes shall be dynamic
                 //todo outer lines shall be optional and for all the shapes
                 //drawSphere(metricValue);
-                drawStatus(metricValue, layer, Object.values(metrics), 0.5);
-                
+                if(conf.displayMetricSpheres){
+                    drawStatus(metricValue, layer, Object.values(metrics), 0.5);
+                }
                 if (conf.displayLayers) {
                     
                     for (let i = 0; i < metricsNumber; i++) {
@@ -1026,8 +1080,9 @@ export default (function(parentElement, conf) {
 
                         if (conf.mockupData) {
                             let statusColor = layerColorDecidedByLayerStatus(layerStatus);
-                            drawStatus(metricValue, layer, Object.values(metrics), 0.5);
-                            //drawFramesBackground(positions, frameName, layerColor, 0.5);
+                            if(conf.displayMetricSpheres){
+                                drawStatus(metricValue, layer, Object.values(metrics), 0.5);
+                            }
                         }
                     }
                 }
@@ -1121,12 +1176,28 @@ export default (function(parentElement, conf) {
          * Rendering loop
          */
         function render() {
+            
             updateMeshs();
+            
             controls.update();
             renderer.render(scene, camera);
+            
             labelsRenderer.render(scene, camera);
             requestAnimationFrame(render);
+            //camera.layers.set(1);
+            //renderBoloom(); 
+            
         }
+
+        /*function renderBoloom(){
+            scene.traverse( darkenNonBloomed );
+            bloomComposer.render();
+        }
+
+
+        function darkenNonBloomed( obj ) {
+            console.log(obj);
+        }*/
 
         /**
          * Transform a metric value into a 3d point
@@ -1269,15 +1340,15 @@ export default (function(parentElement, conf) {
             let min =  value.min;
             let max = value.max;
             let med = value.med;
-            let color = conf.statusColorLow;
+            let color = conf.sphereColorLow ;
             if (conf.layerStatusControl) {
                 if (cur >= min && cur <= med) {
                     return color;
                 } else if (cur > med && cur <= max) {
-                    color = conf.statusColorMed;
+                    color = conf.sphereColorMed;                    ;
                     return color;
                 } else {
-                    color = conf.statusColorVeryHigh;
+                    color = conf.sphereColorHigh;
                     return color;
                 }
             }
@@ -1308,20 +1379,23 @@ export default (function(parentElement, conf) {
         }
 
         function drawSphere(planePoints,layerName,metricIndex,metricColor){
+
             if(meshs['_sphere'+layerName+metricIndex]){
                 meshs['_sphere'+layerName+metricIndex].material.color.set( metricColor );
-                const material = new THREE.MeshBasicMaterial( { color: "#000000"} );
                 meshs['_sphere'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
+
             }else{
+                
                 const geometry = new THREE.SphereGeometry( 0.8, 32, 16 );
-                const material = new THREE.MeshBasicMaterial( { color: metricColor} );
+                const material = new THREE.MeshBasicMaterial( { color: "blue"} );
                 material.transparent = true;
                 material.opacity=1;
                 meshs['_sphere'+layerName+metricIndex]=new THREE.Mesh( geometry, material );
                 //x,z,y
                 meshs['_sphere'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
                 scene.add( meshs['_sphere'+layerName+metricIndex] );
-
+                meshs['_sphere'+layerName+metricIndex].layers.set(0);
+    
             }
             
         }

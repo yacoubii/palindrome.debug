@@ -17,6 +17,14 @@ export function dcFullMap() {
           "med": 500,
           "max": 1000,
           "current": 250
+        },
+        "outgoingRequests2": {
+          "label": "outgoing requests",
+          "unit": "thousands / second",
+          "min": 0,
+          "med": 500,
+          "max": 1000,
+          "current": 250
         }
       },
       "layer": {
