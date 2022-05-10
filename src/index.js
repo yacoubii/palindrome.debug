@@ -1111,9 +1111,7 @@ export default (function(parentElement, conf) {
                 //todo number of shapes shall be dynamic
                 //todo outer lines shall be optional and for all the shapes
                 //drawSphere(metricValue);
-                if(conf.displayMetricSpheres){
-                    drawStatus(metricValue, layer, Object.values(metrics), 0.5);
-                }
+                
                 if (conf.displayLayers) {
                     
                     for (let i = 0; i < metricsNumber; i++) {
@@ -1130,13 +1128,7 @@ export default (function(parentElement, conf) {
                         else if (conf.layerDisplayMode === "dynamic") {
                             drawTrianglesInALayer(layer + '_mintoCurLayerShape', metricValue.min, metricValue.current, i, metricsNumber, layerColorDecidedByLayerStatus(layerStatus));
                         }
-
-                        if (conf.mockupData) {
-                            let statusColor = layerColorDecidedByLayerStatus(layerStatus);
-                            if(conf.displayMetricSpheres){
-                                drawStatus(metricValue, layer, Object.values(metrics), 0.5);
-                            }
-                        }
+                        
                     }
                 }
 
@@ -1389,32 +1381,6 @@ export default (function(parentElement, conf) {
             }
         }
 
-        function drawStatus(sphereCoords, layerName, metrics, opacity) {
-            for (var i = 0; i < sphereCoords.current.length; i++){
-                drawSphere(sphereCoords.current[i],layerName,i.toString(),metricColor(metrics[i]));
-                //console.log(layerName," -- the color is :",metricColor(metrics[i]));
-            }
-        }
-
-        function metricColor(value) {
-            let cur = value.current;
-            let min =  value.min;
-            let max = value.max;
-            let med = value.med;
-            let color = conf.sphereColorLow ;
-            if (conf.layerStatusControl) {
-                if (cur >= min && cur <= med) {
-                    return color;
-                } else if (cur > med && cur <= max) {
-                    color = conf.sphereColorMed;                    ;
-                    return color;
-                } else {
-                    color = conf.sphereColorHigh;
-                    return color;
-                }
-            }
-        }
-        
         
 
 
@@ -1439,27 +1405,7 @@ export default (function(parentElement, conf) {
             }
         }
 
-        function drawSphere(planePoints,layerName,metricIndex,metricColor){
 
-            if(meshs['_sphere'+layerName+metricIndex]){
-                meshs['_sphere'+layerName+metricIndex].material.color.set( metricColor );
-                meshs['_sphere'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
-
-            }else{
-                
-                const geometry = new THREE.SphereGeometry( 0.8, 32, 16 );
-                const material = new THREE.MeshBasicMaterial( { color: "blue"} );
-                material.transparent = true;
-                material.opacity=1;
-                meshs['_sphere'+layerName+metricIndex]=new THREE.Mesh( geometry, material );
-                //x,z,y
-                meshs['_sphere'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
-                scene.add( meshs['_sphere'+layerName+metricIndex] );
-                meshs['_sphere'+layerName+metricIndex].layers.set(0);
-    
-            }
-            
-        }
 
 
     }
