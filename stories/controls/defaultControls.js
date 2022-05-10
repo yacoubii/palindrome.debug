@@ -539,7 +539,7 @@ export function defaultControls() {
         },
         frameLineWidth: {
             name: 'frameLineWidth',
-            defaultValue: 0.5,
+            defaultValue: 1,
             control: 'number',
             description: 'Change the frame line width',
             table: {

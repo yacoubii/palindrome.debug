@@ -28,6 +28,8 @@ export default (function(parentElement, conf) {
             renderer,
             camera
         } = initThreeObjects();
+
+
         scene.background = new THREE.Color( "#e3e3e3" );
         //scene.background = new THREE.Color( "black");
         /*const renderScene = new RenderPass(scene, camera);
@@ -94,6 +96,8 @@ export default (function(parentElement, conf) {
         // TODO change this when we have a real data source
         const fileContent = new Request("default-data.json");
 
+        var clock = new THREE.Clock();
+        var time = 0;
 
         run(fileContent);
 
@@ -108,7 +112,7 @@ export default (function(parentElement, conf) {
         async function run(src) {
             // init data
             //const result = await fetch(src);
-        
+            
             let data;
             try {
                 data = await result.json();
@@ -125,11 +129,62 @@ export default (function(parentElement, conf) {
                 linewidth: conf.lineWidth,
                 opacity: conf.lineOpacity,
             });
-            dashLineMaterial = new THREE.LineDashedMaterial({
+            /*dashLineMaterial = new THREE.LineDashedMaterial({
                 color: conf.frameLineColor,
                 linewidth: conf.frameLineWidth,
                 dashSize: conf.frameDashLineSize
-            });
+            });*/
+            var lineVertShader = `
+            attribute float lineDistance;
+            varying float vLineDistance;
+            
+            void main() {
+              vLineDistance = lineDistance;
+              vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+              gl_Position = projectionMatrix * mvPosition;
+            }
+            `;
+            var lineFragShader = `
+            uniform vec3 diffuse;
+            uniform float opacity;
+            uniform float time; // added time uniform
+          
+            uniform float dashSize;
+            uniform float gapSize;
+            uniform float dotSize;
+            varying float vLineDistance;
+            
+            void main() {
+                  float totalSize = dashSize + gapSize;
+                  float modulo = mod( vLineDistance + time, totalSize ); // time added to vLineDistance
+              float dotDistance = dashSize + (gapSize * .5) - (dotSize * .5);
+              
+              if ( modulo > dashSize && mod(modulo, dotDistance) > dotSize ) {
+                discard;
+              }
+          
+              gl_FragColor = vec4( diffuse, opacity );
+
+              
+            }
+            `;
+
+            dashLineMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                      diffuse: {value: new THREE.Color(conf.frameLineColor)},
+                  dashSize: {value: conf.frameDashLineSize},
+                  gapSize: {value: 1},
+                  dotSize: {value: 0.1},
+                  opacity: {value: 1.0},
+                  time: {value: 0},
+                   // added uniform
+                },
+                side: THREE.DoubleSide,
+                vertexShader: lineVertShader,
+                fragmentShader: lineFragShader,
+                transparent: true
+              });
+            dashLineMaterial.linewidth=conf.frameLineWidth;
             lineMaterialTransparent = new THREE.LineDashedMaterial({
                 color: conf.mainAppColor,
                 linewidth: conf.lineWidth,
@@ -422,7 +477,6 @@ export default (function(parentElement, conf) {
         function getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit, metricData) {
             if(metricData && labelUnit==='%'){
                 //percentage handle
-                console.log(metricData)
                 labelValue=(labelValue/metricData.max)*100;
             }
             let data = '';
@@ -765,7 +819,6 @@ export default (function(parentElement, conf) {
                         const metricsLabels = sortedMetricsLabels[i];
                         if (metrics[metricsLabels.key]) {
                             const metricData = metrics[metricsLabels.key];
-                            console.log(metricData)
                             const metricsLabelsName = metricData.label;
                             const metricsLabelsType = metricsLabels.dataType;
                             let metricsLabelsUnit = metricsLabels.labelUnit;
@@ -1184,6 +1237,14 @@ export default (function(parentElement, conf) {
             
             labelsRenderer.render(scene, camera);
             requestAnimationFrame(render);
+            for (const [key, value] of Object.entries(meshs)) {
+                if(key.includes("_rangeDasheline")){
+                   time += clock.getDelta()*3;
+                   meshs[key].material.uniforms.time.value = time;
+                }
+                
+              }
+              
             //camera.layers.set(1);
             //renderBoloom(); 
             
