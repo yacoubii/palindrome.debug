@@ -2,12 +2,13 @@ import { logicBoolean } from '../src/data_structures_examples/logic_Boolean';
 import { logicTernary } from '../src/data_structures_examples/logic_Ternary';
 import { logicFourValued } from '../src/data_structures_examples/logic_FourValued';
 import { logicFiveThreeTwo } from '../src/data_structures_examples/logic_FiveThreeTwo';
-import { defaultControls } from './controls/defaultControls';
+import { defaultControls,defaultValues } from './controls/defaultControls';
 import { createPalindrome } from './controls/createPalindrome';
 
 export default {
     title: 'Use Cases/Palindrome/Multi-values logic example',
     argTypes: defaultControls(),
+    args: defaultValues(),
 };
 
 export const Boolean = createPalindrome.bind({});

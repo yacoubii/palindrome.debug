@@ -1,10 +1,11 @@
 import { debugTwoLayersThreePoints } from '../src/data_structures_examples/debug_TwoLayersThreePoints';
 import { debugTwoLayersFourPoints } from '../src/data_structures_examples/debug_TwoLayersFourPoints';
-import { defaultControls } from './controls/defaultControls';
+import { defaultControls,defaultValues } from './controls/defaultControls';
 import { createPalindrome } from './controls/createPalindrome';
 export default {
     title: 'Debug/Palindrome/Examples',
     argTypes: defaultControls(),
+    args: defaultValues(),
 };
 export const DebugTwoLayersThreePoints = createPalindrome.bind({});
 DebugTwoLayersThreePoints.args = {

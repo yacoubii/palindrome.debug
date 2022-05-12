@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { CSS2DRenderer } from 'three-css2drender';
+import { CSS2DObject, CSS2DRenderer } from 'three-css2drender';
+
 
 function initCamera() {
 	const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
@@ -37,6 +38,26 @@ function initScene() {
 	return scene;
 }
 
+function createHtmlText(labelText, cardColor, cardBackground, parameters) {
+	let p = document.createElement('p');
+	p.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+	p.style.color = parameters['labelColor'];
+	p.style.fontSize = parameters['labelSize'] + 'px';
+	p.style.fontFamily = parameters['characterFont'];
+	p.style.fontWeight = parameters["labelBold"];
+	p.style.fontStyle = parameters["labelItalic"];
+	p.style.padding = '5px';
+	if (cardColor) {
+		p.style.border = ' 2px ' + parameters['labelColor'] + ' dashed';
+	}
+	if (cardBackground) {
+		p.style.background = parameters["labelBackground"];
+	}
+	p.innerText = labelText;
+	return p;
+}
+
+
 export function initThreeObjects() {
 	const scene = initScene();
 	const camera = initCamera();
@@ -52,6 +73,8 @@ export function initThreeObjects() {
 		camera.aspect = width / height;
 		camera.updateProjectionMatrix();
 	});
+
+	
 	return {
 		scene,
 		labelsRenderer,

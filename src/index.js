@@ -7,12 +7,17 @@ import { dataGenerator } from './dataGenerator';
 import { EffectComposer } from "/node_modules/three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "/node_modules/three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "/node_modules/three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { FontLoader, TextGeometry } from 'three';
 
 /**
  * @param {HTMLElement} parentElement perent element of three's renderer element
  * @param {*} conf model's configuration
  */
 export default (function(parentElement, conf) {
+        var loader = new THREE.FontLoader();
+        var raycaster = new THREE.Raycaster();
+        var mouse = new THREE.Vector2();
+    
         let debug = true;
 
         // data related
@@ -28,6 +33,63 @@ export default (function(parentElement, conf) {
             renderer,
             camera
         } = initThreeObjects();
+
+
+        var hoveredObjects = {};
+        window.addEventListener('mousemove', 
+		function (event) {
+			
+			event.preventDefault();
+
+			mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+			mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+			raycaster.setFromCamera(mouse, camera);
+
+			var intersects = raycaster.intersectObjects(scene.children, true);
+            var hoveredObjectUuids = intersects.filter(e => e.object.name.includes("_sphereHoverRegion")).map(el => el.object.uuid);
+			for (var i = 0; i < intersects.length; i++) {
+                
+				if(intersects[i].object.name.includes("_sphereHoverRegion")){	
+                    let name = intersects[i].object.name;
+                    name = name.replace('_sphereHoverRegion','_text');
+                    var hoveredObj = intersects[i].object;
+                    meshs[name].visible=true;
+                    if(conf.metricsLabelsRenderingMode === "2D"){
+                        meshs[name].element.style.display="";
+                    }
+                    if (hoveredObjects[hoveredObj.uuid]) {
+                        continue; // this object was hovered and still hovered
+                    }
+                    hoveredObjects[hoveredObj.uuid] = hoveredObj;
+                    
+
+					
+				}
+					
+			}
+
+            for (let uuid of Object.keys(hoveredObjects)) {
+                let idx = hoveredObjectUuids.indexOf(uuid);
+                if (idx === -1) {
+                    // object with given uuid was unhovered
+                    let unhoveredObj = hoveredObjects[uuid];
+                    let name = unhoveredObj.name;
+                    name = name.replace('_sphereHoverRegion','_text');
+                    if(meshs[name]){
+                        meshs[name].visible=false;
+                        if(conf.metricsLabelsRenderingMode === "2D"){
+                            meshs[name].element.style.display="none";
+                        }
+                    }
+                        
+                
+                    delete hoveredObjects[uuid];
+        
+                }
+            }
+		}
+	    );
 
 
         scene.background = new THREE.Color( "#e3e3e3" );
@@ -99,6 +161,8 @@ export default (function(parentElement, conf) {
         var clock = new THREE.Clock();
         var time = 0;
 
+        
+
         run(fileContent);
 
 
@@ -129,45 +193,40 @@ export default (function(parentElement, conf) {
                 linewidth: conf.lineWidth,
                 opacity: conf.lineOpacity,
             });
-            /*dashLineMaterial = new THREE.LineDashedMaterial({
-                color: conf.frameLineColor,
-                linewidth: conf.frameLineWidth,
-                dashSize: conf.frameDashLineSize
-            });*/
             var lineVertShader = `
-            attribute float lineDistance;
-            varying float vLineDistance;
-            
-            void main() {
-              vLineDistance = lineDistance;
-              vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-              gl_Position = projectionMatrix * mvPosition;
-            }
-            `;
+                attribute float lineDistance;
+                varying float vLineDistance;
+                
+                void main() {
+                vLineDistance = lineDistance;
+                vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+                gl_Position = projectionMatrix * mvPosition;
+                }
+                `;
             var lineFragShader = `
-            uniform vec3 diffuse;
-            uniform float opacity;
-            uniform float time; // added time uniform
-          
-            uniform float dashSize;
-            uniform float gapSize;
-            uniform float dotSize;
-            varying float vLineDistance;
+                uniform vec3 diffuse;
+                uniform float opacity;
+                uniform float time; // added time uniform
             
-            void main() {
-                  float totalSize = dashSize + gapSize;
-                  float modulo = mod( vLineDistance + time, totalSize ); // time added to vLineDistance
-              float dotDistance = dashSize + (gapSize * .5) - (dotSize * .5);
-              
-              if ( modulo > dashSize && mod(modulo, dotDistance) > dotSize ) {
-                discard;
-              }
-          
-              gl_FragColor = vec4( diffuse, opacity );
+                uniform float dashSize;
+                uniform float gapSize;
+                uniform float dotSize;
+                varying float vLineDistance;
+                
+                void main() {
+                    float totalSize = dashSize + gapSize;
+                    float modulo = mod( vLineDistance + time, totalSize ); // time added to vLineDistance
+                float dotDistance = dashSize + (gapSize * .5) - (dotSize * .5);
+                
+                if ( modulo > dashSize && mod(modulo, dotDistance) > dotSize ) {
+                    discard;
+                }
+            
+                gl_FragColor = vec4( diffuse, opacity );
 
-              
-            }
-            `;
+                
+                }
+                `;
 
             dashLineMaterial = new THREE.ShaderMaterial({
                 uniforms: {
@@ -183,7 +242,8 @@ export default (function(parentElement, conf) {
                 vertexShader: lineVertShader,
                 fragmentShader: lineFragShader,
                 transparent: true
-              });
+            });
+
             dashLineMaterial.linewidth=conf.frameLineWidth;
             lineMaterialTransparent = new THREE.LineDashedMaterial({
                 color: conf.mainAppColor,
@@ -200,10 +260,10 @@ export default (function(parentElement, conf) {
                 createLabels(data);
             }
 
-
             render(data);
             cameraVewOptions(meshs);
         }
+
 
 
         /**
@@ -601,12 +661,18 @@ export default (function(parentElement, conf) {
                 textureImage = htmlToSvg(labelDiv[labelName]);
             }
             texture.image = textureImage;
-            texture.needsUpdate = true;
+
+            setTimeout( function () {
+                    // assigning data to HTMLImageElement.src is asynchronous (see #15162)
+                    // using setTimeout() avoids the warning "Texture marked for update but image is incomplete"
+                    texture.needsUpdate = true;
+            }, 0 );
+                        
             texture.minFilter = THREE.NearestFilter;
             
             let spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
                 metricsLabels = new THREE.Sprite(spriteMaterial);
-                //TODO: lenna
+
             metricsLabels.scale.set(2 * metricParameters["labelSize"], 1 * metricParameters["labelSize"], metricParameters["labelSize"]);
             metricsLabels.key = key;
             metricsLabels.name = labelName;
@@ -664,7 +730,11 @@ export default (function(parentElement, conf) {
             labelDiv[labelName].appendChild(createHtmlText(labelName, true, true, layerParameters));
             textureImage = htmlToSvg(labelDiv[labelName]);
             texture.image = textureImage;
-            texture.needsUpdate = true;
+            setTimeout( function () {
+                // assigning data to HTMLImageElement.src is asynchronous (see #15162)
+                // using setTimeout() avoids the warning "Texture marked for update but image is incomplete"
+                texture.needsUpdate = true;
+            }, 0 );
             texture.minFilter = THREE.NearestFilter;
             let spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
                 layersLabels = new THREE.Sprite(spriteMaterial);
@@ -675,6 +745,7 @@ export default (function(parentElement, conf) {
             return layersLabels;
 
         }
+
 
         /**
          * Create labels for each metrics
@@ -740,6 +811,7 @@ export default (function(parentElement, conf) {
                                 scene.add(create2DLayersLabels(key, value.label, layerIndex));
                             } else if (conf.layersLabelsRenderingMode === "3D") {
                                 layersLabelsIds.push(key);
+                                
                                 scene.add(create3DLayersLabels(key, value.label, layerIndex));
                             }
                         }
@@ -997,97 +1069,11 @@ export default (function(parentElement, conf) {
 
                             if (meshs['side-bias-line' + layer + i]) {
                                 // if init done, update
-                                meshs['side-bias-line' + layer + i].update(sideSizeOdd[i], a)
-                                meshs['side-straight-line' + layer + i].update(b, a, lineMaterial)
+                                meshs['side-bias-line' + layer + i].update(sideSizeOdd[i], a);
+                                meshs['side-straight-line' + layer + i].update(b, a, lineMaterial);
 
-                                meshs['side-top-left-pane' + layer + i].update(c, a, d)
-                                var geometry = meshs['side-top-left-pane' + layer + i].geometry;
-                                meshs['side-top-left-pane' + layer + i].material= new THREE.ShaderMaterial({
-                                    uniforms: {
-                                      color1: {
-                                        value: new THREE.Color(colorA)
-                                      },
-                                      color2: {
-                                        value: new THREE.Color(colorB)
-                                      },
-                                      bboxMin: {
-                                        value: geometry.boundingBox.min
-                                      },
-                                      bboxMax: {
-                                        value: geometry.boundingBox.max
-                                      }
-                                    },
-                                    vertexShader: `
-                                      uniform vec3 bboxMin;
-                                      uniform vec3 bboxMax;
-                                    
-                                      varying vec2 vUv;
-                                  
-                                      void main() {
-                                        vUv.y = (position.y - bboxMin.y) / (bboxMax.y - bboxMin.y);
-                                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-                                      }
-                                    `,
-                                    fragmentShader: `
-                                      uniform vec3 color1;
-                                      uniform vec3 color2;
-                                    
-                                      varying vec2 vUv;
-                                      
-                                      void main() {
-                                        
-                                        gl_FragColor = vec4(mix(color1, color2, vUv.y), 0.5);
-                                      }
-                                    `,
-                                    wireframe: false,
-                                    side: THREE.DoubleSide,
-                                    transparent:true
-                                  });
-
-                                meshs['side-bottom-right-pane' + layer + i].update(d, b, a)
-                                geometry = meshs['side-bottom-right-pane' + layer + i].geometry;
-                                meshs['side-bottom-right-pane' + layer + i].material= new THREE.ShaderMaterial({
-                                    uniforms: {
-                                      color1: {
-                                        value: new THREE.Color(colorA)
-                                      },
-                                      color2: {
-                                        value: new THREE.Color(colorB)
-                                      },
-                                      bboxMin: {
-                                        value: geometry.boundingBox.min
-                                      },
-                                      bboxMax: {
-                                        value: geometry.boundingBox.max
-                                      }
-                                    },
-                                    vertexShader: `
-                                      uniform vec3 bboxMin;
-                                      uniform vec3 bboxMax;
-                                    
-                                      varying vec2 vUv;
-                                  
-                                      void main() {
-                                        vUv.y = (position.y - bboxMin.y) / (bboxMax.y - bboxMin.y);
-                                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-                                      }
-                                    `,
-                                    fragmentShader: `
-                                      uniform vec3 color1;
-                                      uniform vec3 color2;
-                                    
-                                      varying vec2 vUv;
-                                      
-                                      void main() {
-                                        
-                                        gl_FragColor = vec4(mix(color1, color2, vUv.y), 0.5);
-                                      }
-                                    `,
-                                    wireframe: false,
-                                    side: THREE.DoubleSide,
-                                    transparent:true
-                                  });
-
+                                meshs['side-top-left-pane' + layer + i].update(c, a, d, colorA, colorB)
+                                meshs['side-bottom-right-pane' + layer + i].update(d, b, a, colorA, colorB);
                             } else {
                                 //init objects
                                 
@@ -1110,8 +1096,6 @@ export default (function(parentElement, conf) {
                 //draws and update layers
                 //todo number of shapes shall be dynamic
                 //todo outer lines shall be optional and for all the shapes
-                //drawSphere(metricValue);
-                
                 if (conf.displayLayers) {
                     
                     for (let i = 0; i < metricsNumber; i++) {
@@ -1128,8 +1112,11 @@ export default (function(parentElement, conf) {
                         else if (conf.layerDisplayMode === "dynamic") {
                             drawTrianglesInALayer(layer + '_mintoCurLayerShape', metricValue.min, metricValue.current, i, metricsNumber, layerColorDecidedByLayerStatus(layerStatus));
                         }
-                        
                     }
+                }
+
+                if(conf.displayMetricSpheres){
+                    makeShereContextsStatus(metricValue, layer, Object.values(metrics));
                 }
 
                 zAxis -= conf.zPlaneMultilayer;
@@ -1217,40 +1204,28 @@ export default (function(parentElement, conf) {
             }
         }
 
-        /**
-         * Rendering loop
-         */
-        function render() {
-            
-            updateMeshs();
-            
-            controls.update();
-            renderer.render(scene, camera);
-            
-            labelsRenderer.render(scene, camera);
-            requestAnimationFrame(render);
+        function animateFrameDashedLine(){
             for (const [key, value] of Object.entries(meshs)) {
                 if(key.includes("_rangeDasheline")){
                    time += clock.getDelta()*3;
                    meshs[key].material.uniforms.time.value = time;
                 }
-                
-              }
-              
-            //camera.layers.set(1);
-            //renderBoloom(); 
-            
+            }
         }
 
-        /*function renderBoloom(){
-            scene.traverse( darkenNonBloomed );
-            bloomComposer.render();
+        /**
+         * Rendering loop
+         */
+        function render() {
+            updateMeshs();
+            controls.update();
+            renderer.render(scene, camera);
+            labelsRenderer.render(scene, camera);
+            requestAnimationFrame(render);
+            animateFrameDashedLine();
         }
 
 
-        function darkenNonBloomed( obj ) {
-            console.log(obj);
-        }*/
 
         /**
          * Transform a metric value into a 3d point
@@ -1283,6 +1258,7 @@ export default (function(parentElement, conf) {
          * @param {*} meshs three.js mesh
          */
         function cameraVewOptions(meshs) {
+           
             let tabX = [],
                 tabY = [],
                 tabZ = [];
@@ -1293,12 +1269,15 @@ export default (function(parentElement, conf) {
 
             //get the center of position of objects
             for (let key in meshs) {
-                let object = meshs[key],
-                    bs = object.geometry.boundingSphere,
-                    vector = bs.center.clone();
-                tabX.push(vector.x);
-                tabY.push(vector.y);
-                tabZ.push(vector.z);
+                if(!key.includes("_text"))
+                    if(meshs[key].visible){
+                        let object = meshs[key],
+                        bs = object.geometry.boundingSphere,
+                        vector = bs.center.clone();
+                        tabX.push(vector.x);
+                        tabY.push(vector.y);
+                        tabZ.push(vector.z);
+                    }
             }
             // calculate the center of objects
             let xMax = (Math.max.apply(Math, tabX)),
@@ -1381,8 +1360,86 @@ export default (function(parentElement, conf) {
             }
         }
 
-        
+        function makeShereContextsStatus(sphereCoords, layerName, metrics) {
+            for (var i = 0; i < sphereCoords.current.length; i++){
+                makeShereContext(sphereCoords.current[i],layerName,i.toString(),metricColor(metrics[i]),metrics[i]);
+            }
+        }
 
+        function metricColor (value) {
+            let cur = value.current;
+            let min =  value.min;
+            let max = value.max;
+            let med = value.med;
+            let color = conf.sphereColorLow ;
+            if (conf.layerStatusControl) {
+                if (cur >= min && cur <= med) {
+                    return color;
+                } else if (cur > med && cur <= max) {
+                    color = conf.sphereColorMed;                    ;
+                    return color;
+                } else {
+                    color = conf.sphereColorHigh;
+                    return color;
+                }
+            }
+        }
+        
+        
+        function makeText( labelName, x,y,z,data) {
+            if(conf.metricsLabelsRenderingMode === "3D") {
+                let texture = new THREE.Texture(),
+                    textureImage;
+                labelDiv[labelName] = document.createElement('div');
+                labelDiv[labelName].className = labelName;
+                labelDiv[labelName].appendChild(createCardText(labelName, false, "DimGray", layerParameters));
+                textureImage = htmlToSvg(labelDiv[labelName]);
+                texture.image = textureImage;
+                setTimeout( function () {
+                    // assigning data to HTMLImageElement.src is asynchronous (see #15162)
+                    // using setTimeout() avoids the warning "Texture marked for update but image is incomplete"
+                    texture.needsUpdate = true;
+                }, 0 );
+                texture.minFilter = THREE.NearestFilter;
+                let spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
+                    layersLabels = new THREE.Sprite(spriteMaterial);
+                layersLabels.scale.set(2 * layerParameters["labelSize"], 1 * layerParameters["labelSize"], layerParameters["labelSize"]);
+                layersLabels.name = labelName;
+                layersLabels.position.set(x,y,z);
+                return layersLabels;
+            } else if(conf.metricsLabelsRenderingMode === "2D"){
+                let div = document.createElement('div');
+                div.className = 'label ' + labelName;
+                if (conf.metricsLabelsRenderingFormat === "Text"){
+                    div.appendChild(createCardText(labelName, false, "DimGray", layerParameters));
+                }
+                else if (conf.metricsLabelsRenderingFormat === "Table") {
+                    div.appendChild(createHtmlTable(data, layerParameters));
+                }
+                else if (conf.metricsLabelsRenderingFormat === "Json") {
+                   
+                    div.appendChild(createCardText(data, false, "DimGray", layerParameters));
+                }
+                const layersLabels = new CSS2DObject(div);
+                layersLabels.name = labelName;
+                layersLabels.position.set(x,y,z);
+                return layersLabels;
+            }
+
+
+        }
+
+        function createCardText(labelText, cardColor, cardBackground, parameters) {
+            let p = document.createElement('p');
+            p.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+            p.style.color = 'white';
+            p.style.fontSize = '20px';
+            p.style.backgroundColor=cardBackground;
+            p.style.padding="8px"
+            p.style.fontFamily = parameters['characterFont'];
+            p.innerText = labelText;
+            return p;
+        }
 
         /**
          * Draw a dash line in a plane (layer)
@@ -1405,7 +1462,66 @@ export default (function(parentElement, conf) {
             }
         }
 
+        
+        function makeSphereFieldOfHover(layerName,metricIndex,planePoints){
+            const planeGeometry = new THREE.SphereGeometry( 2, 32, 16 );
+            const planeMaterial = new THREE.MeshBasicMaterial( {color: "grey", side: THREE.DoubleSide, transparent: true, opacity:1} );
+            const mesh = new THREE.Mesh( planeGeometry, planeMaterial );
+            mesh.name = '_sphereHoverRegion'+layerName+metricIndex;
+            mesh.position.set(planePoints[0], planePoints[2], planePoints[1]);
+            mesh.visible = false;
+            mesh.quaternion.copy(camera.quaternion);
+            return mesh;
+        }
 
+        function makeSphereText(planePoints, metricValues){
+            const text = "Min = "+metricValues.min+". Max= "+metricValues.max+". Med= "+metricValues.med;
+            const obj = {0:['Min','Max','Med'],1:[metricValues.min, metricValues.max, metricValues.med]};
+            const json = {'Min':metricValues.min, 'Max':metricValues.max,'Med':metricValues.med}
+            let mesh;
+            if(conf.metricsLabelsRenderingFormat === "Json"){
+                mesh= makeText(text,planePoints[0], planePoints[2]+3, planePoints[1],JSON.stringify(json));
+            }
+            else {
+                mesh = makeText(text,planePoints[0], planePoints[2]+3, planePoints[1],obj);
+            }
+            mesh.visible=false;
+            if(conf.metricsLabelsRenderingMode === "2D"){
+                mesh.element.style.display="none";
+            }
+            return mesh;
+        }
+
+        function makeShereContext (planePoints,layerName,metricIndex,metricColor, metricValues) {
+            
+            if(meshs['_sphere'+layerName+metricIndex]){
+                meshs['_sphere'+layerName+metricIndex].material.color.set( metricColor );
+                meshs['_sphere'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
+                if(meshs['_sphereHoverRegion'+layerName+metricIndex]){
+                    meshs['_sphereHoverRegion'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1])
+                }
+                if(meshs['_text'+layerName+metricIndex]){
+                    meshs['_text'+layerName+metricIndex].position.set(planePoints[0], planePoints[2]+3, planePoints[1]);
+                }
+            }else{
+                const geometry = new THREE.SphereGeometry( 0.8, 32, 16 );
+                const material = new THREE.MeshBasicMaterial( { color: metricColor} );
+                material.transparent = true;
+                material.opacity=1;
+                meshs['_sphere'+layerName+metricIndex]=new THREE.Mesh( geometry, material );
+                //x,z,y
+                meshs['_sphere'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
+                scene.add( meshs['_sphere'+layerName+metricIndex] );
+                
+                meshs['_sphereHoverRegion'+layerName+metricIndex]= makeSphereFieldOfHover(layerName,metricIndex,planePoints);
+                scene.add( meshs['_sphereHoverRegion'+layerName+metricIndex] );
+                
+                meshs['_text'+layerName+metricIndex] = makeSphereText(planePoints, metricValues);
+                scene.add(meshs['_text'+layerName+metricIndex]);
+    
+            }
+            
+        }
 
 
     }

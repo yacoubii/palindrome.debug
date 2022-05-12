@@ -4,12 +4,13 @@ import { dcEnergeticEfficiency } from '../src/data_structures_examples/dc_Energe
 import { dcMy3DObjectExample } from '../src/data_structures_examples/dc_My3DObjectExample';
 import {dcPyramidOfMaslows} from '../src/data_structures_examples/dc_pyramid_of_maslows';
 import { dcFullMap } from '../src/data_structures_examples/dc_FullMap';
-import { defaultControls } from './controls/defaultControls';
+import { defaultControls, defaultValues } from './controls/defaultControls';
 import { createPalindrome } from './controls/createPalindrome';
 
 export default {
     title: 'Use Cases/Palindrome/Data Center example',
     argTypes: defaultControls(),
+    args: defaultValues(),
 };
 
 export const PyramidOfMaslows = createPalindrome.bind({});

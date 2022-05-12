@@ -170,7 +170,7 @@ export class GradientedTriangle extends THREE.Mesh {
 		this.position.copy(center);
 	}
 
-	update(a, b, c) {
+	update(a, b, c, colorA, colorB) {
 		const geometry = this.geometry;
 		geometry.vertices[0].set(a[0], a[2], a[1]);
 		geometry.vertices[1].set(b[0], b[2], b[1]);
@@ -184,6 +184,47 @@ export class GradientedTriangle extends THREE.Mesh {
 
 		this.position.copy(center);
 
+		this.material = new THREE.ShaderMaterial({
+			uniforms: {
+			  color1: {
+				value: new THREE.Color(colorA)
+			  },
+			  color2: {
+				value: new THREE.Color(colorB)
+			  },
+			  bboxMin: {
+				value: geometry.boundingBox.min
+			  },
+			  bboxMax: {
+				value: geometry.boundingBox.max
+			  }
+			},
+			vertexShader: `
+			  uniform vec3 bboxMin;
+			  uniform vec3 bboxMax;
+			
+			  varying vec2 vUv;
+		  
+			  void main() {
+				vUv.y = (position.y - bboxMin.y) / (bboxMax.y - bboxMin.y);
+				gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+			  }
+			`,
+			fragmentShader: `
+			  uniform vec3 color1;
+			  uniform vec3 color2;
+			
+			  varying vec2 vUv;
+			  
+			  void main() {
+				
+				gl_FragColor = vec4(mix(color1, color2, vUv.y), 0.5);
+			  }
+			`,
+			wireframe: false,
+			side: THREE.DoubleSide,
+			transparent:true
+		  });
 
 	}
 }

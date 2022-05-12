@@ -1,10 +1,11 @@
 import { readmeBasicConfiguration } from '../src/data_structures_examples/readme_BasicConfiguration';
-import { defaultControls } from './controls/defaultControls';
+import { defaultControls,defaultValues } from './controls/defaultControls';
 import { createPalindrome } from './controls/createPalindrome';
 
 export default {
     title: 'READ ME/Dali/readme example',
     argTypes: defaultControls(),
+    args: defaultValues(),
 };
 
 export const BasicConfiguration = createPalindrome.bind({});
