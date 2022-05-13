@@ -34,27 +34,9 @@ function initControls(camera, labelsRenderer) {
 
 function initScene() {
 	const scene = new THREE.Scene();
-	scene.background = new THREE.Color(0xffffff);
+	//scene.background = new THREE.Color(0xffffff);
+	scene.background = new THREE.Color( "#e3e3e3" );
 	return scene;
-}
-
-function createHtmlText(labelText, cardColor, cardBackground, parameters) {
-	let p = document.createElement('p');
-	p.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-	p.style.color = parameters['labelColor'];
-	p.style.fontSize = parameters['labelSize'] + 'px';
-	p.style.fontFamily = parameters['characterFont'];
-	p.style.fontWeight = parameters["labelBold"];
-	p.style.fontStyle = parameters["labelItalic"];
-	p.style.padding = '5px';
-	if (cardColor) {
-		p.style.border = ' 2px ' + parameters['labelColor'] + ' dashed';
-	}
-	if (cardBackground) {
-		p.style.background = parameters["labelBackground"];
-	}
-	p.innerText = labelText;
-	return p;
 }
 
 
@@ -64,6 +46,8 @@ export function initThreeObjects() {
 	const renderer = initRenderer();
 	const labelsRenderer = initLabelsRenderer();
 	const controls = initControls(camera, labelsRenderer);
+
+	
 	
 	window.addEventListener('resize', function () {
 		const width = window.innerWidth;
@@ -73,7 +57,6 @@ export function initThreeObjects() {
 		camera.aspect = width / height;
 		camera.updateProjectionMatrix();
 	});
-
 	
 	return {
 		scene,
@@ -82,4 +65,66 @@ export function initThreeObjects() {
 		renderer,
 		camera
 	};
+}
+
+
+export function sphereHoverInit(meshs, camera, scene, conf) {	
+	var raycaster = new THREE.Raycaster();
+	var mouse = new THREE.Vector2();
+	
+	var hoveredObjects = {};
+	window.addEventListener('mousemove', 
+	function (event) {
+		
+		event.preventDefault();
+
+		mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+		mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+		raycaster.setFromCamera(mouse, camera);
+
+		var intersects = raycaster.intersectObjects(scene.children, true);
+		var hoveredObjectUuids = intersects.filter(e => e.object.name.includes("_sphereHoverRegion")).map(el => el.object.uuid);
+		for (var i = 0; i < intersects.length; i++) {
+			
+			if(intersects[i].object.name.includes("_sphereHoverRegion")){	
+				let name = intersects[i].object.name;
+				name = name.replace('_sphereHoverRegion','_text');
+				var hoveredObj = intersects[i].object;
+				meshs[name].visible=true;
+				if(conf.metricsLabelsRenderingMode === "2D"){
+					meshs[name].element.style.display="";
+				}
+				if (hoveredObjects[hoveredObj.uuid]) {
+					continue; // this object was hovered and still hovered
+				}
+				hoveredObjects[hoveredObj.uuid] = hoveredObj;
+				
+
+				
+			}
+				
+		}
+
+		for (let uuid of Object.keys(hoveredObjects)) {
+			let idx = hoveredObjectUuids.indexOf(uuid);
+			if (idx === -1) {
+				// object with given uuid was unhovered
+				let unhoveredObj = hoveredObjects[uuid];
+				let name = unhoveredObj.name;
+				name = name.replace('_sphereHoverRegion','_text');
+				if(meshs[name]){
+					meshs[name].visible=false;
+					if(conf.metricsLabelsRenderingMode === "2D"){
+						meshs[name].element.style.display="none";
+					}
+				}
+					
+			
+				delete hoveredObjects[uuid];
+	
+			}
+		}
+	}
+	);
 }

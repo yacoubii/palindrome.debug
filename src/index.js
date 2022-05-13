@@ -2,21 +2,15 @@
 import * as THREE from 'three';
 import { CSS2DObject } from 'three-css2drender';
 import { GradientedTriangle, Triangle, SimpleLine, DasheLine } from './ThreeGeometryObjects';
-import { initThreeObjects } from './ThreeJSBasicObjects';
+import { initThreeObjects,sphereHoverInit } from './ThreeJSBasicObjects';
 import { dataGenerator } from './dataGenerator';
-import { EffectComposer } from "/node_modules/three/examples/jsm/postprocessing/EffectComposer.js";
-import { RenderPass } from "/node_modules/three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "/node_modules/three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { FontLoader, TextGeometry } from 'three';
 
 /**
  * @param {HTMLElement} parentElement perent element of three's renderer element
  * @param {*} conf model's configuration
  */
 export default (function(parentElement, conf) {
-        var loader = new THREE.FontLoader();
-        var raycaster = new THREE.Raycaster();
-        var mouse = new THREE.Vector2();
+
     
         let debug = true;
 
@@ -26,6 +20,8 @@ export default (function(parentElement, conf) {
         // three.js related
         let lineMaterial, dashLineMaterial, lineMaterialTransparent;
         const meshs = {};
+        
+
         const {
             scene,
             labelsRenderer,
@@ -34,82 +30,10 @@ export default (function(parentElement, conf) {
             camera
         } = initThreeObjects();
 
-
-        var hoveredObjects = {};
-        window.addEventListener('mousemove', 
-		function (event) {
-			
-			event.preventDefault();
-
-			mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-			mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
-
-			raycaster.setFromCamera(mouse, camera);
-
-			var intersects = raycaster.intersectObjects(scene.children, true);
-            var hoveredObjectUuids = intersects.filter(e => e.object.name.includes("_sphereHoverRegion")).map(el => el.object.uuid);
-			for (var i = 0; i < intersects.length; i++) {
-                
-				if(intersects[i].object.name.includes("_sphereHoverRegion")){	
-                    let name = intersects[i].object.name;
-                    name = name.replace('_sphereHoverRegion','_text');
-                    var hoveredObj = intersects[i].object;
-                    meshs[name].visible=true;
-                    if(conf.metricsLabelsRenderingMode === "2D"){
-                        meshs[name].element.style.display="";
-                    }
-                    if (hoveredObjects[hoveredObj.uuid]) {
-                        continue; // this object was hovered and still hovered
-                    }
-                    hoveredObjects[hoveredObj.uuid] = hoveredObj;
-                    
-
-					
-				}
-					
-			}
-
-            for (let uuid of Object.keys(hoveredObjects)) {
-                let idx = hoveredObjectUuids.indexOf(uuid);
-                if (idx === -1) {
-                    // object with given uuid was unhovered
-                    let unhoveredObj = hoveredObjects[uuid];
-                    let name = unhoveredObj.name;
-                    name = name.replace('_sphereHoverRegion','_text');
-                    if(meshs[name]){
-                        meshs[name].visible=false;
-                        if(conf.metricsLabelsRenderingMode === "2D"){
-                            meshs[name].element.style.display="none";
-                        }
-                    }
-                        
-                
-                    delete hoveredObjects[uuid];
-        
-                }
-            }
-		}
-	    );
-
-
-        scene.background = new THREE.Color( "#e3e3e3" );
-        //scene.background = new THREE.Color( "black");
-        /*const renderScene = new RenderPass(scene, camera);
-        const bloomPass = new UnrealBloomPass(
-        new THREE.Vector2(window.innerWidth, window.innerHeight),
-        1.5,
-        0.4,
-        0.85
-        );
-        bloomPass.threshold = 0;
-        bloomPass.strength = 2; //intensity of glow
-        bloomPass.radius = 0;
-        var bloomComposer = new EffectComposer(renderer);
-        
-        bloomComposer.setSize(window.innerWidth, window.innerHeight);
-        bloomComposer.renderToScreen = true;
-        bloomComposer.addPass(renderScene);
-        bloomComposer.addPass(bloomPass);*/
+        if (conf.displayValuesOnSphereHover){
+            //sphere hovering effect init
+            sphereHoverInit(meshs, camera, scene, conf);
+        }
 
         
         let metricParameters = {},
@@ -202,7 +126,7 @@ export default (function(parentElement, conf) {
                 vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
                 gl_Position = projectionMatrix * mvPosition;
                 }
-                `;
+            `;
             var lineFragShader = `
                 uniform vec3 diffuse;
                 uniform float opacity;
@@ -226,11 +150,11 @@ export default (function(parentElement, conf) {
 
                 
                 }
-                `;
+            `;
 
             dashLineMaterial = new THREE.ShaderMaterial({
                 uniforms: {
-                      diffuse: {value: new THREE.Color(conf.frameLineColor)},
+                  diffuse: {value: new THREE.Color(conf.frameLineColor)},
                   dashSize: {value: conf.frameDashLineSize},
                   gapSize: {value: 1},
                   dotSize: {value: 0.1},
@@ -663,7 +587,7 @@ export default (function(parentElement, conf) {
             texture.image = textureImage;
 
             setTimeout( function () {
-                    // assigning data to HTMLImageElement.src is asynchronous (see #15162)
+                    // assigning data to HTMLImageElement.src is asynchronous 
                     // using setTimeout() avoids the warning "Texture marked for update but image is incomplete"
                     texture.needsUpdate = true;
             }, 0 );
@@ -731,7 +655,7 @@ export default (function(parentElement, conf) {
             textureImage = htmlToSvg(labelDiv[labelName]);
             texture.image = textureImage;
             setTimeout( function () {
-                // assigning data to HTMLImageElement.src is asynchronous (see #15162)
+                // assigning data to HTMLImageElement.src is asynchronous 
                 // using setTimeout() avoids the warning "Texture marked for update but image is incomplete"
                 texture.needsUpdate = true;
             }, 0 );
@@ -1116,7 +1040,7 @@ export default (function(parentElement, conf) {
                 }
 
                 if(conf.displayMetricSpheres){
-                    makeShereContextsStatus(metricValue, layer, Object.values(metrics));
+                    makeSphereContextsStatus(metricValue, layer, Object.values(metrics));
                 }
 
                 zAxis -= conf.zPlaneMultilayer;
@@ -1360,12 +1284,25 @@ export default (function(parentElement, conf) {
             }
         }
 
-        function makeShereContextsStatus(sphereCoords, layerName, metrics) {
+        /**
+         * Draw spheres and their hover context
+         *
+         * @param {string} layerName layer name
+         * @param {*} metrics spheres metrics infos
+         * @param {*} sphereCoords spheres coordinates
+         */
+        function makeSphereContextsStatus(sphereCoords, layerName, metrics) {
             for (var i = 0; i < sphereCoords.current.length; i++){
-                makeShereContext(sphereCoords.current[i],layerName,i.toString(),metricColor(metrics[i]),metrics[i]);
+                makeSphereContext(sphereCoords.current[i],layerName,i.toString(),metricColor(metrics[i]),metrics[i]);
             }
         }
 
+
+        /**
+         * Get sphere color based on its current value
+         *
+         * @param {number} value sphere current value
+         */
         function metricColor (value) {
             let cur = value.current;
             let min =  value.min;
@@ -1385,18 +1322,26 @@ export default (function(parentElement, conf) {
             }
         }
         
-        
+        /**
+         * Add text in the top of a sphere
+         *
+         * @param {string} labelName normal text in the top of the sphere
+         * @param {number} x x coordinate
+         * @param {number} y y coordinate
+         * @param {number} z z coordinate
+         * @param {*} data other data in case of json or table display
+         */
         function makeText( labelName, x,y,z,data) {
             if(conf.metricsLabelsRenderingMode === "3D") {
                 let texture = new THREE.Texture(),
                     textureImage;
                 labelDiv[labelName] = document.createElement('div');
                 labelDiv[labelName].className = labelName;
-                labelDiv[labelName].appendChild(createCardText(labelName, false, "DimGray", layerParameters));
+                labelDiv[labelName].appendChild(createCardText(labelName, "DimGray", layerParameters));
                 textureImage = htmlToSvg(labelDiv[labelName]);
                 texture.image = textureImage;
                 setTimeout( function () {
-                    // assigning data to HTMLImageElement.src is asynchronous (see #15162)
+                    // assigning data to HTMLImageElement.src is asynchronous 
                     // using setTimeout() avoids the warning "Texture marked for update but image is incomplete"
                     texture.needsUpdate = true;
                 }, 0 );
@@ -1411,14 +1356,14 @@ export default (function(parentElement, conf) {
                 let div = document.createElement('div');
                 div.className = 'label ' + labelName;
                 if (conf.metricsLabelsRenderingFormat === "Text"){
-                    div.appendChild(createCardText(labelName, false, "DimGray", layerParameters));
+                    div.appendChild(createCardText(labelName, "DimGray", layerParameters));
                 }
                 else if (conf.metricsLabelsRenderingFormat === "Table") {
                     div.appendChild(createHtmlTable(data, layerParameters));
                 }
                 else if (conf.metricsLabelsRenderingFormat === "Json") {
                    
-                    div.appendChild(createCardText(data, false, "DimGray", layerParameters));
+                    div.appendChild(createCardText(data, "DimGray", layerParameters));
                 }
                 const layersLabels = new CSS2DObject(div);
                 layersLabels.name = labelName;
@@ -1429,7 +1374,14 @@ export default (function(parentElement, conf) {
 
         }
 
-        function createCardText(labelText, cardColor, cardBackground, parameters) {
+        /**
+         * Add text in the top of a sphere
+         *
+         * @param {string} labelText normal text in the top of the sphere
+         * @param {number} cardBackground background color of the card
+         * @param {number} parameters style parameters
+         */
+        function createCardText(labelText, cardBackground, parameters) {
             let p = document.createElement('p');
             p.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
             p.style.color = 'white';
@@ -1462,7 +1414,14 @@ export default (function(parentElement, conf) {
             }
         }
 
-        
+
+        /**
+         * Draw hover context of spheres
+         *
+         * @param {string} layerName layer name
+         * @param {number} metrics the index of the metric
+         * @param {*} planePoints sphere coordinates
+         */
         function makeSphereFieldOfHover(layerName,metricIndex,planePoints){
             const planeGeometry = new THREE.SphereGeometry( 2, 32, 16 );
             const planeMaterial = new THREE.MeshBasicMaterial( {color: "grey", side: THREE.DoubleSide, transparent: true, opacity:1} );
@@ -1474,6 +1433,13 @@ export default (function(parentElement, conf) {
             return mesh;
         }
 
+        /**
+         * Make sphere label : text, sphere or json
+         *
+         * @param {string} layerName layer name
+         * @param {number} metrics the index of the metric
+         * @param {*} planePoints sphere coordinates
+         */
         function makeSphereText(planePoints, metricValues){
             const text = "Min = "+metricValues.min+". Max= "+metricValues.max+". Med= "+metricValues.med;
             const obj = {0:['Min','Max','Med'],1:[metricValues.min, metricValues.max, metricValues.med]};
@@ -1492,7 +1458,17 @@ export default (function(parentElement, conf) {
             return mesh;
         }
 
-        function makeShereContext (planePoints,layerName,metricIndex,metricColor, metricValues) {
+
+        /**
+         * Adding spheres and context in scene
+         *
+         * @param {*} planePoints sphere coordinates
+         * @param {string} layerName layer name
+         * @param {number} metricIndex the index of the metric
+         * @param {number} metricColor the index of the metric
+         * @param {number} metricValues the index of the metric
+         */
+        function makeSphereContext (planePoints,layerName,metricIndex,metricColor, metricValues) {
             
             if(meshs['_sphere'+layerName+metricIndex]){
                 meshs['_sphere'+layerName+metricIndex].material.color.set( metricColor );
@@ -1513,17 +1489,17 @@ export default (function(parentElement, conf) {
                 meshs['_sphere'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
                 scene.add( meshs['_sphere'+layerName+metricIndex] );
                 
-                meshs['_sphereHoverRegion'+layerName+metricIndex]= makeSphereFieldOfHover(layerName,metricIndex,planePoints);
-                scene.add( meshs['_sphereHoverRegion'+layerName+metricIndex] );
-                
-                meshs['_text'+layerName+metricIndex] = makeSphereText(planePoints, metricValues);
-                scene.add(meshs['_text'+layerName+metricIndex]);
+                if (conf.displayValuesOnSphereHover){
+                    meshs['_sphereHoverRegion'+layerName+metricIndex]= makeSphereFieldOfHover(layerName,metricIndex,planePoints);
+                    scene.add( meshs['_sphereHoverRegion'+layerName+metricIndex] );
+                    
+                    meshs['_text'+layerName+metricIndex] = makeSphereText(planePoints, metricValues);
+                    scene.add(meshs['_text'+layerName+metricIndex]);
+                }
     
             }
             
         }
-
-
     }
 
 );

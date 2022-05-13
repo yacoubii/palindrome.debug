@@ -383,6 +383,16 @@ export function defaultControls() {
                 subcategory: "Metrics"
             },
         },
+        displayValuesOnSphereHover: {
+            name: "displayValuesOnSphereHover",
+            
+            description: "Display or not all metrics spheres",
+            control: "boolean",
+            table: {
+                category: "Labels",
+                subcategory: "Metrics"
+            },
+        },
         // layer label configuration
         layersLabelsRenderingMode: {
             name: "layersLabelsRenderingMode",
@@ -769,6 +779,7 @@ export function defaultValues(){
     displayMetricsLabels: true,
     displayAllMetricsLabels: false,
     displayMetricSpheres: true,
+    displayValuesOnSphereHover: true,
     layersLabelsRenderingMode: '3D',
     layersLabelsOrientation: 'Sticky',
     layersLabelsCharacterFont: 'Arial',
