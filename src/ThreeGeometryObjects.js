@@ -54,9 +54,9 @@ export class DasheLine extends THREE.Line {
 export class Triangle extends THREE.Mesh {
 	constructor(a, b, c, color,opacity) {
 		const vertices = [
-			a[0], a[2], a[1],
-			b[0], b[2], b[1],
-			c[0], c[2], c[1],
+			new THREE.Vector3(a[0], a[2], a[1]),
+			new THREE.Vector3(b[0], b[2], b[1]),
+			new THREE.Vector3(c[0], c[2], c[1]),
 		] ;
 		
 		if(!opacity){
@@ -79,24 +79,18 @@ export class Triangle extends THREE.Mesh {
 
 
 		super(geometry, material_front);
-
+		this.position.copy(center);
 	}
 
 	update(a, b, c) {
-
-		
 		const vertices = [
 			new THREE.Vector3(a[0], a[2], a[1]),
 			new THREE.Vector3(b[0], b[2], b[1]),
 			new THREE.Vector3(c[0], c[2], c[1]),
 		] ;
-
 		this.geometry.setFromPoints( vertices );
-
-
 		const center = new THREE.Vector3();
 		this.geometry.computeBoundingBox();
-
 		this.geometry.boundingBox.getCenter(center);
 		this.geometry.center();
 		this.geometry.attributes.position.needsUpdate = true;
@@ -104,6 +98,7 @@ export class Triangle extends THREE.Mesh {
 		this.position.copy(center);
 	}
 }
+
 
 export class GradientedTriangle extends THREE.Mesh {
 	constructor(a, b, c, colorA,colorB,opacity) {
