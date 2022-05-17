@@ -30,9 +30,13 @@ export default (function(parentElement, conf) {
             camera
         } = initThreeObjects();
 
+        renderer.domElement.addEventListener('webglcontextlost', function(e) {
+            e.preventDefault();
+        });
+
         if (conf.displayValuesOnSphereHover){
             //sphere hovering effect init
-            sphereHoverInit(meshs, camera, scene, conf);
+            //sphereHoverInit(meshs, camera, scene, conf);
         }
 
         
@@ -184,7 +188,8 @@ export default (function(parentElement, conf) {
                 createLabels(data);
             }
 
-            render(data);
+            //render(data);
+            animate();
             cameraVewOptions(meshs);
         }
 
@@ -747,11 +752,20 @@ export default (function(parentElement, conf) {
             }
         }
 
+        function ObjectLength( object ) {
+            var length = 0;
+            for( var key in object ) {
+                if( object.hasOwnProperty(key) ) {
+                    ++length;
+                }
+            }
+            return length;
+        };
+
         /**
          * Create and update every mesh to match the latest data
          */
         function updateMeshs() {
-
             if (conf.mockupData) {
                 newData = dataIterator.next().value;
             }
@@ -1109,21 +1123,21 @@ export default (function(parentElement, conf) {
          * @param {number} planePointLength metric count in the layer
          * @param {string} color material color
          */
-        function drawTrianglesInALayer(layer, planePointOne, planePointTwo, i, planePointLength, color) {
+        async function drawTrianglesInALayer(layer, planePointOne, planePointTwo, i, planePointLength, color) {
 
             if (meshs['19' + layer + i]) { // if init done
                 
-                meshs['19' + layer + i].update(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength])
-                meshs['20' + layer + i].update(planePointTwo[(i + 1) % planePointLength], planePointOne[(i + 1) % planePointLength], planePointOne[(i) % planePointLength])
+                await meshs['19' + layer + i].update(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength])
+                await meshs['20' + layer + i].update(planePointTwo[(i + 1) % planePointLength], planePointOne[(i + 1) % planePointLength], planePointOne[(i) % planePointLength])
                 meshs['19' + layer + i].material.color.set( color );
                 meshs['20' + layer + i].material.color.set( color );
             }
             //init objects
             else {
                 
-                meshs['19' + layer + i] = new Triangle(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength], color);
+                meshs['19' + layer + i] = await new Triangle(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength], color);
                 scene.add(meshs['19' + layer + i]);
-                meshs['20' + layer + i] = new Triangle(planePointTwo[(i + 1) % planePointLength], planePointOne[(i + 1) % planePointLength], planePointOne[(i) % planePointLength], color);
+                meshs['20' + layer + i] = await new Triangle(planePointTwo[(i + 1) % planePointLength], planePointOne[(i + 1) % planePointLength], planePointOne[(i) % planePointLength], color);
                 scene.add(meshs['20' + layer + i]);
             }
         }
@@ -1137,16 +1151,31 @@ export default (function(parentElement, conf) {
             }
         }
 
+
         /**
          * Rendering loop
          */
-        function render() {
+        /*function render() {
             updateMeshs();
             controls.update();
             renderer.render(scene, camera);
             labelsRenderer.render(scene, camera);
+            //animateFrameDashedLine();
             requestAnimationFrame(render);
+        }*/
+
+        function animate() {
+            updateMeshs();
+            controls.update();
+            renderer.render(scene, camera);
+            labelsRenderer.render(scene, camera);
             animateFrameDashedLine();
+            requestAnimationFrame( animate );
+            render();
+          }
+          
+        function render() {
+            renderer.render( scene, camera );
         }
 
 
@@ -1261,7 +1290,7 @@ export default (function(parentElement, conf) {
          * @param {string} backgroundColor frame background color
          * @param {int} opacity frame opacity
          */
-        function drawFramesBackground(framePoints, frameName, backgroundColor, opacity) {
+         async function drawFramesBackground(framePoints, frameName, backgroundColor, opacity) {
             let j = 0
             for (let i = 0; i < framePoints.length; i++) {
                 if (framePoints[j + 1]) {
@@ -1273,9 +1302,9 @@ export default (function(parentElement, conf) {
                             meshs['side-top-left-pane' + frameName + i].update(a, b, c);
                             meshs['side-bottom-right-pane' + frameName + i + 1].update(a, b, c);
                         } else {
-                            meshs['side-top-left-pane' + frameName + i] = new Triangle(a, b, c, backgroundColor, opacity);
+                            meshs['side-top-left-pane' + frameName + i] = await new Triangle(a, b, c, backgroundColor, opacity);
                             scene.add(meshs['side-top-left-pane' + frameName + i]);
-                            meshs['side-bottom-right-pane' + frameName + i + 1] = new Triangle(a, b, c, backgroundColor, opacity);
+                            meshs['side-bottom-right-pane' + frameName + i + 1] = await new Triangle(a, b, c, backgroundColor, opacity);
                             scene.add(meshs['side-bottom-right-pane' + frameName + i + 1]);
                         }
                         j = i + 1;
