@@ -53,16 +53,18 @@ export class DasheLine extends THREE.Line {
 
 export class Triangle extends THREE.Mesh {
 	constructor(a, b, c, color,opacity) {
-		const vertices = [
-			new THREE.Vector3(a[0], a[2], a[1]),
-			new THREE.Vector3(b[0], b[2], b[1]),
-			new THREE.Vector3(c[0], c[2], c[1]),
-		] ;
+		const vertices = new Float32Array( [
+			a[0], a[2], a[1],
+			b[0], b[2], b[1],
+			c[0], c[2], c[1],
+		] );
+
 		
 		if(!opacity){
 			opacity = 0.5;
 		}
-		let geometry = new THREE.BufferGeometry().setFromPoints( vertices );
+		let geometry = new THREE.BufferGeometry();
+		geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
 		
 		const center = new THREE.Vector3();
 		geometry.computeBoundingBox();
@@ -83,12 +85,15 @@ export class Triangle extends THREE.Mesh {
 	}
 
 	update(a, b, c) {
-		const vertices = [
-			new THREE.Vector3(a[0], a[2], a[1]),
-			new THREE.Vector3(b[0], b[2], b[1]),
-			new THREE.Vector3(c[0], c[2], c[1]),
-		] ;
-		this.geometry.setFromPoints( vertices );
+		
+
+		const vertices = new Float32Array( [
+			a[0], a[2], a[1],
+			b[0], b[2], b[1],
+			c[0], c[2], c[1],
+		] );
+
+		this.geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
 		const center = new THREE.Vector3();
 		this.geometry.computeBoundingBox();
 		this.geometry.boundingBox.getCenter(center);

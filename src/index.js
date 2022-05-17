@@ -31,6 +31,7 @@ export default (function(parentElement, conf) {
         } = initThreeObjects();
 
         renderer.domElement.addEventListener('webglcontextlost', function(e) {
+            console.log(e);
             e.preventDefault();
         });
 
@@ -1054,7 +1055,7 @@ export default (function(parentElement, conf) {
                 }
 
                 if(conf.displayMetricSpheres){
-                    makeSphereContextsStatus(metricValue, layer, Object.values(metrics));
+                    //makeSphereContextsStatus(metricValue, layer, Object.values(metrics));
                 }
 
                 zAxis -= conf.zPlaneMultilayer;
@@ -1124,7 +1125,7 @@ export default (function(parentElement, conf) {
          * @param {string} color material color
          */
         async function drawTrianglesInALayer(layer, planePointOne, planePointTwo, i, planePointLength, color) {
-
+            
             if (meshs['19' + layer + i]) { // if init done
                 
                 await meshs['19' + layer + i].update(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength])
