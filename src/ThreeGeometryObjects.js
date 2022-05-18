@@ -29,43 +29,37 @@ export class Sphere extends THREE.Sphere {
 
 export class DasheLine extends THREE.Line {
 	constructor(value1, value2, transparentLineMaterial) {
-		const vertices = [
-			new THREE.Vector3(value1[0], value1[2], value1[1]),
-			new THREE.Vector3(value2[0], value2[2], value2[1]),
-		] ;
+		const vertices = new Float32Array([
+			value1[0], value1[2], value1[1],
+			value2[0], value2[2], value2[1],
+		]) ;
 		
-		let geometry = new THREE.BufferGeometry().setFromPoints( vertices );
+		let geometry = new THREE.BufferGeometry();
+		geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
 		
 		super(geometry, transparentLineMaterial);
 		this.computeLineDistances()
 	}
 
 	update(a,b){
-		const vertices = [
-			new THREE.Vector3(a[0], a[2], a[1]),
-			new THREE.Vector3(b[0], b[2], b[1]),
-		] ;
-		this.geometry.setFromPoints( vertices );
+		this.geometry.attributes.position.setXYZ( 0, a[0], a[2], a[1] );
+		this.geometry.attributes.position.setXYZ( 1, b[0], b[2], b[1] );
 		this.geometry.attributes.position.needsUpdate = true;
 	};
 }
 
 
 export class Triangle extends THREE.Mesh {
-	constructor(a, b, c, color,opacity) {
+	constructor(a, b, c, color,opacity=0.5) {
 		const vertices = new Float32Array( [
 			a[0], a[2], a[1],
 			b[0], b[2], b[1],
 			c[0], c[2], c[1],
 		] );
 
-		
-		if(!opacity){
-			opacity = 0.5;
-		}
 		let geometry = new THREE.BufferGeometry();
 		geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
-		
+
 		const center = new THREE.Vector3();
 		geometry.computeBoundingBox();
 		geometry.boundingBox.getCenter(center);
@@ -79,26 +73,22 @@ export class Triangle extends THREE.Mesh {
 			side: THREE.DoubleSide
 		});
 
-
 		super(geometry, material_front);
 		this.position.copy(center);
 	}
 
 	update(a, b, c) {
 		
-
-		const vertices = new Float32Array( [
-			a[0], a[2], a[1],
-			b[0], b[2], b[1],
-			c[0], c[2], c[1],
-		] );
-
-		this.geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+		this.geometry.attributes.position.setXYZ( 0, a[0], a[2], a[1] );
+		this.geometry.attributes.position.setXYZ( 1, b[0], b[2], b[1] );
+		this.geometry.attributes.position.setXYZ( 2, c[0], c[2], c[1] );
+		
+		this.geometry.attributes.position.needsUpdate = true;
 		const center = new THREE.Vector3();
 		this.geometry.computeBoundingBox();
 		this.geometry.boundingBox.getCenter(center);
 		this.geometry.center();
-		this.geometry.attributes.position.needsUpdate = true;
+		
 
 		this.position.copy(center);
 	}
@@ -106,32 +96,21 @@ export class Triangle extends THREE.Mesh {
 
 
 export class GradientedTriangle extends THREE.Mesh {
-	constructor(a, b, c, colorA,colorB,opacity) {
-		const i1 = new THREE.Vector3(a[0], a[2], a[1]);
-		const i2 = new THREE.Vector3(b[0], b[2], b[1]);
-		const i3 = new THREE.Vector3(c[0], c[2], c[1]);
-		if(!opacity){
-			opacity = 0.5;
-		}
-		const geometry = new THREE.Geometry();
-		geometry.vertices.push(i1);
-		geometry.vertices.push(i2);
-		geometry.vertices.push(i3);
-
+	constructor(a, b, c, colorA, colorB) {
+		const vertices = new Float32Array( [
+			a[0], a[2], a[1],
+			b[0], b[2], b[1],
+			c[0], c[2], c[1],
+		] );
+		let geometry = new THREE.BufferGeometry();
+		geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+		geometry.attributes.position.needsUpdate = true;
+		
 		const center = new THREE.Vector3();
 		geometry.computeBoundingBox();
 		geometry.boundingBox.getCenter(center);
 		geometry.center();
-		geometry.verticesNeedUpdate = true;
-
-		const face = new THREE.Face3(0, 1, 2);
-		geometry.faces.push(face);
-
-		function adjust(color, amount) {
-			return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
-		}
-		colorA=adjust(colorA,100);
-		colorB=adjust(colorB,100);
+		geometry.attributes.position.needsUpdate = true;
 
 		var material_front = new THREE.ShaderMaterial({
 			uniforms: {
@@ -181,17 +160,17 @@ export class GradientedTriangle extends THREE.Mesh {
 	}
 
 	update(a, b, c, colorA, colorB) {
-		const geometry = this.geometry;
-		geometry.vertices[0].set(a[0], a[2], a[1]);
-		geometry.vertices[1].set(b[0], b[2], b[1]);
-		geometry.vertices[2].set(c[0], c[2], c[1]);
+		
+		this.geometry.attributes.position.setXYZ( 0, a[0], a[2], a[1] );
+		this.geometry.attributes.position.setXYZ( 1, b[0], b[2], b[1] );
+		this.geometry.attributes.position.setXYZ( 2, c[0], c[2], c[1] );
+		this.geometry.attributes.position.needsUpdate = true;
 
 		const center = new THREE.Vector3();
-		geometry.computeBoundingBox();
-		geometry.boundingBox.getCenter(center);
-		geometry.center();
-		geometry.verticesNeedUpdate = true;
-
+		this.geometry.computeBoundingBox();
+		this.geometry.boundingBox.getCenter(center);
+		this.geometry.center();
+		
 		this.position.copy(center);
 
 		this.material = new THREE.ShaderMaterial({
@@ -203,10 +182,10 @@ export class GradientedTriangle extends THREE.Mesh {
 				value: new THREE.Color(colorB)
 			  },
 			  bboxMin: {
-				value: geometry.boundingBox.min
+				value: this.geometry.boundingBox.min
 			  },
 			  bboxMax: {
-				value: geometry.boundingBox.max
+				value: this.geometry.boundingBox.max
 			  }
 			},
 			vertexShader: `
@@ -236,10 +215,10 @@ export class GradientedTriangle extends THREE.Mesh {
 			transparent:true
 		  });
 
+
 	}
+
 }
-
-
 /*
 import * as THREE from 'three';
 

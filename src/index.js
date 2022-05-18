@@ -1,9 +1,10 @@
 //import 'babel-polyfill';
 import * as THREE from 'three';
-import { CSS2DObject } from 'three-css2drender';
+
 import { GradientedTriangle, Triangle, SimpleLine, DasheLine } from './ThreeGeometryObjects';
 import { initThreeObjects,sphereHoverInit } from './ThreeJSBasicObjects';
 import { dataGenerator } from './dataGenerator';
+import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer";
 
 /**
  * @param {HTMLElement} parentElement perent element of three's renderer element
@@ -37,7 +38,7 @@ export default (function(parentElement, conf) {
 
         if (conf.displayValuesOnSphereHover){
             //sphere hovering effect init
-            //sphereHoverInit(meshs, camera, scene, conf);
+            sphereHoverInit(meshs, camera, scene, conf);
         }
 
         
@@ -1055,7 +1056,7 @@ export default (function(parentElement, conf) {
                 }
 
                 if(conf.displayMetricSpheres){
-                    //makeSphereContextsStatus(metricValue, layer, Object.values(metrics));
+                    makeSphereContextsStatus(metricValue, layer, Object.values(metrics));
                 }
 
                 zAxis -= conf.zPlaneMultilayer;
