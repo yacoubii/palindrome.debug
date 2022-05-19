@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer";
-
+import { WebGLUtils } from 'three';
 
 function initCamera() {
 	const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
@@ -15,7 +15,6 @@ function initRenderer() {
 		alpha: true,
 		transparent: true
 	});
-	renderer.debug.checkShaderErrors=true;
 	renderer.setPixelRatio(window.devicePixelRatio);
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	return renderer;

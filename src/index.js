@@ -1,17 +1,17 @@
 //import 'babel-polyfill';
 import * as THREE from 'three';
 
-import { GradientedTriangle, Triangle, SimpleLine, DasheLine } from './ThreeGeometryObjects';
+import {Triangle, SimpleLine, DasheLine } from './ThreeGeometryObjects';
 import { initThreeObjects,sphereHoverInit } from './ThreeJSBasicObjects';
 import { dataGenerator } from './dataGenerator';
 import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer";
+import * as wud from './debug/webgl-debug.js';
 
 /**
  * @param {HTMLElement} parentElement perent element of three's renderer element
  * @param {*} conf model's configuration
  */
 export default (function(parentElement, conf) {
-
     
         let debug = true;
 
@@ -32,7 +32,7 @@ export default (function(parentElement, conf) {
         } = initThreeObjects();
 
         renderer.domElement.addEventListener('webglcontextlost', function(e) {
-            console.log(e);
+            renderer.forceContextRestore()
             e.preventDefault();
         });
 
@@ -190,8 +190,7 @@ export default (function(parentElement, conf) {
                 createLabels(data);
             }
 
-            //render(data);
-            animate();
+            render(data);
             cameraVewOptions(meshs);
         }
 
@@ -603,7 +602,7 @@ export default (function(parentElement, conf) {
             
             let spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
                 metricsLabels = new THREE.Sprite(spriteMaterial);
-
+            spriteMaterial.needsUpdate = true;
             metricsLabels.scale.set(2 * metricParameters["labelSize"], 1 * metricParameters["labelSize"], metricParameters["labelSize"]);
             metricsLabels.key = key;
             metricsLabels.name = labelName;
@@ -669,6 +668,7 @@ export default (function(parentElement, conf) {
             texture.minFilter = THREE.NearestFilter;
             let spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
                 layersLabels = new THREE.Sprite(spriteMaterial);
+            spriteMaterial.needsUpdate = true;
             layersLabels.scale.set(2 * layerParameters["labelSize"], 1 * layerParameters["labelSize"], layerParameters["labelSize"]);
             layersLabels.key = key;
             layersLabels.name = labelName;
@@ -763,6 +763,7 @@ export default (function(parentElement, conf) {
             }
             return length;
         };
+
 
         /**
          * Create and update every mesh to match the latest data
@@ -1022,9 +1023,9 @@ export default (function(parentElement, conf) {
                                 meshs['side-straight-line' + layer + i] = new SimpleLine(b, a, lineMaterial);
                                 scene.add(meshs['side-straight-line' + layer + i]);
 
-                                meshs['side-top-left-pane' + layer + i] = new GradientedTriangle(c, a, d, colorA,colorB);
+                                meshs['side-top-left-pane' + layer + i] = new Triangle(c, a, d, colorA, colorB, null);
                                 scene.add(meshs['side-top-left-pane' + layer + i]);
-                                meshs['side-bottom-right-pane' + layer + i] = new GradientedTriangle(d, b, a, colorA,colorB);
+                                meshs['side-bottom-right-pane' + layer + i] = new Triangle(d, b, a, colorA, colorB, null);
                                 scene.add(meshs['side-bottom-right-pane' + layer + i]);
                             }
                         }
@@ -1125,21 +1126,21 @@ export default (function(parentElement, conf) {
          * @param {number} planePointLength metric count in the layer
          * @param {string} color material color
          */
-        async function drawTrianglesInALayer(layer, planePointOne, planePointTwo, i, planePointLength, color) {
+        function drawTrianglesInALayer(layer, planePointOne, planePointTwo, i, planePointLength, color) {
             
             if (meshs['19' + layer + i]) { // if init done
                 
-                await meshs['19' + layer + i].update(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength])
-                await meshs['20' + layer + i].update(planePointTwo[(i + 1) % planePointLength], planePointOne[(i + 1) % planePointLength], planePointOne[(i) % planePointLength])
+                meshs['19' + layer + i].update(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength])
+                meshs['20' + layer + i].update(planePointTwo[(i + 1) % planePointLength], planePointOne[(i + 1) % planePointLength], planePointOne[(i) % planePointLength])
                 meshs['19' + layer + i].material.color.set( color );
                 meshs['20' + layer + i].material.color.set( color );
             }
             //init objects
             else {
                 
-                meshs['19' + layer + i] = await new Triangle(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength], color);
+                meshs['19' + layer + i] = new Triangle(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength], color, null, null);
                 scene.add(meshs['19' + layer + i]);
-                meshs['20' + layer + i] = await new Triangle(planePointTwo[(i + 1) % planePointLength], planePointOne[(i + 1) % planePointLength], planePointOne[(i) % planePointLength], color);
+                meshs['20' + layer + i] = new Triangle(planePointTwo[(i + 1) % planePointLength], planePointOne[(i + 1) % planePointLength], planePointOne[(i) % planePointLength], color, null, null);
                 scene.add(meshs['20' + layer + i]);
             }
         }
@@ -1157,28 +1158,15 @@ export default (function(parentElement, conf) {
         /**
          * Rendering loop
          */
-        /*function render() {
+        function render() {
             updateMeshs();
             controls.update();
             renderer.render(scene, camera);
             labelsRenderer.render(scene, camera);
             //animateFrameDashedLine();
             requestAnimationFrame(render);
-        }*/
-
-        function animate() {
-            updateMeshs();
-            controls.update();
-            renderer.render(scene, camera);
-            labelsRenderer.render(scene, camera);
-            animateFrameDashedLine();
-            requestAnimationFrame( animate );
-            render();
-          }
-          
-        function render() {
-            renderer.render( scene, camera );
         }
+
 
 
 
@@ -1292,7 +1280,7 @@ export default (function(parentElement, conf) {
          * @param {string} backgroundColor frame background color
          * @param {int} opacity frame opacity
          */
-         async function drawFramesBackground(framePoints, frameName, backgroundColor, opacity) {
+        function drawFramesBackground(framePoints, frameName, backgroundColor, opacity) {
             let j = 0
             for (let i = 0; i < framePoints.length; i++) {
                 if (framePoints[j + 1]) {
@@ -1304,9 +1292,9 @@ export default (function(parentElement, conf) {
                             meshs['side-top-left-pane' + frameName + i].update(a, b, c);
                             meshs['side-bottom-right-pane' + frameName + i + 1].update(a, b, c);
                         } else {
-                            meshs['side-top-left-pane' + frameName + i] = await new Triangle(a, b, c, backgroundColor, opacity);
+                            meshs['side-top-left-pane' + frameName + i] = new Triangle(a, b, c, backgroundColor, opacity);
                             scene.add(meshs['side-top-left-pane' + frameName + i]);
-                            meshs['side-bottom-right-pane' + frameName + i + 1] = await new Triangle(a, b, c, backgroundColor, opacity);
+                            meshs['side-bottom-right-pane' + frameName + i + 1] = new Triangle(a, b, c, backgroundColor, opacity);
                             scene.add(meshs['side-bottom-right-pane' + frameName + i + 1]);
                         }
                         j = i + 1;
@@ -1379,6 +1367,7 @@ export default (function(parentElement, conf) {
                 texture.minFilter = THREE.NearestFilter;
                 let spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
                     layersLabels = new THREE.Sprite(spriteMaterial);
+                spriteMaterial.needsUpdate = true;
                 layersLabels.scale.set(2 * layerParameters["labelSize"], 1 * layerParameters["labelSize"], layerParameters["labelSize"]);
                 layersLabels.name = labelName;
                 layersLabels.position.set(x,y,z);
@@ -1456,6 +1445,7 @@ export default (function(parentElement, conf) {
         function makeSphereFieldOfHover(layerName,metricIndex,planePoints){
             const planeGeometry = new THREE.SphereGeometry( 2, 32, 16 );
             const planeMaterial = new THREE.MeshBasicMaterial( {color: "grey", side: THREE.DoubleSide, transparent: true, opacity:1} );
+            planeMaterial.needsUpdate=true;
             const mesh = new THREE.Mesh( planeGeometry, planeMaterial );
             mesh.name = '_sphereHoverRegion'+layerName+metricIndex;
             mesh.position.set(planePoints[0], planePoints[2], planePoints[1]);
@@ -1514,6 +1504,7 @@ export default (function(parentElement, conf) {
                 const geometry = new THREE.SphereGeometry( 0.8, 32, 16 );
                 const material = new THREE.MeshBasicMaterial( { color: metricColor} );
                 material.transparent = true;
+                material.needsUpdate = true;
                 material.opacity=1;
                 meshs['_sphere'+layerName+metricIndex]=new THREE.Mesh( geometry, material );
                 //x,z,y

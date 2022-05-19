@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "parcel index.html",
     "build": "parcel build index.html",
-    "storybook": "export NODE_OPTIONS=--openssl-legacy-provider && start-storybook -p 6006",
+    "storybook": "start-storybook -p 6006",
     "build-storybook": "build-storybook",
     "cy:run": "cypress run",
     "cypress:open": "cypress open",
@@ -22,24 +22,25 @@
   },
   "dependencies": {
     "@bellapps/three.text-sprite": "^1.0.0",
-    "@storybook/addon-actions": "6.5.0-rc.0",
-    "@storybook/addon-essentials": "6.5.0-rc.0",
-    "@storybook/addon-links": "6.5.0-rc.0",
-    "@storybook/addons": "6.5.0-rc.0",
-    "@storybook/html": "6.5.0-rc.0",
-    "@storybook/theming": "^6.5.0-rc.0",
+    "@storybook/addon-actions": "6.5.2",
+    "@storybook/addon-essentials": "6.5.0",
+    "@storybook/addon-links": "6.5.2",
+    "@storybook/addons": "6.5.2",
+    "@storybook/html": "6.5.0",
+    "@storybook/theming": "^6.5.2",
     "@types/node": "17.0.34",
     "cypress-visual-regression": "^1.6.3",
     "node": "^17.7.2",
     "node-gyp": "^9.0.0",
     "parcel": "^2.0.1",
-    "storybook": "^6.5.0-rc.0",
+    "storybook": "6.5.2",
     "three": "0.140.2",
     "three-bmfont-text": "3.0.1",
     "three-css2drender": "1.0.0",
     "three-text2d": "0.6.0",
     "three.text": "1.0.13"
   },
+  "chromium-args": "--disable-gpu-process-crash-limit --gpu-no-context-lost --force-gpu-mem-available-mb=9999999 --max-active-webgl-contexts=32 --max-decoded-image-size-mb=1000 --enable-zero-copy",
   "browserslist": [
     "since 2017-06"
   ]
