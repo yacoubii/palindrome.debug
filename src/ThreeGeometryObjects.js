@@ -20,12 +20,6 @@ export class SimpleLine extends THREE.Line {
 	};
 }
 
-export class Sphere extends THREE.Sphere {
-	constructor(value1, value2, value3, material) {
-		const geometry = new THREE.BufferGeometry(value1, value2, value3);
-		super(geometry, material);
-	}
-}
 
 export class DasheLine extends THREE.Line {
 	constructor(value1, value2, transparentLineMaterial) {
@@ -139,49 +133,23 @@ export class Triangle extends THREE.Mesh {
 		this.position.copy(center);
 
 		if (colorA && colorB){
-			this.material = new THREE.ShaderMaterial({
-				uniforms: {
-				  color1: {
-					value: new THREE.Color(colorA)
-				  },
-				  color2: {
-					value: new THREE.Color(colorB)
-				  },
-				  bboxMin: {
-					value: this.geometry.boundingBox.min
-				  },
-				  bboxMax: {
-					value: this.geometry.boundingBox.max
-				  }
-				},
-				vertexShader: `
-				  uniform vec3 bboxMin;
-				  uniform vec3 bboxMax;
-				
-				  varying vec2 vUv;
-			  
-				  void main() {
-					vUv.y = (position.y - bboxMin.y) / (bboxMax.y - bboxMin.y);
-					gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-				  }
-				`,
-				fragmentShader: `
-				  uniform vec3 color1;
-				  uniform vec3 color2;
-				
-				  varying vec2 vUv;
-				  
-				  void main() {
-					
-					gl_FragColor = vec4(mix(color1, color2, vUv.y), 0.5);
-				  }
-				`,
-				wireframe: false,
-				side: THREE.DoubleSide,
-				transparent:true
-			  });
-			  this.material.needsUpdate= true;
+			this.material.uniforms.color1.value = new THREE.Color(colorA);
+			this.material.uniforms.color2.value = new THREE.Color(colorB);
+			this.material.needsUpdate= true;
 		}
 	}
 }
 
+export class Sphere extends THREE.Mesh {
+	constructor(color){
+		const geometry = new THREE.SphereGeometry( 0.8, 32, 16 );
+		const material = new THREE.MeshBasicMaterial( {color} );
+		material.transparent = true;
+		material.needsUpdate = true;
+		material.opacity=1;
+		super(geometry, material);
+	}
+	update(color){
+		this.material.color.set(color);
+	};
+}

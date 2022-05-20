@@ -1,11 +1,9 @@
 //import 'babel-polyfill';
 import * as THREE from 'three';
-
 import {Triangle, SimpleLine, DasheLine } from './ThreeGeometryObjects';
 import { initThreeObjects,sphereHoverInit } from './ThreeJSBasicObjects';
 import { dataGenerator } from './dataGenerator';
 import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer";
-import * as wud from './debug/webgl-debug.js';
 
 /**
  * @param {HTMLElement} parentElement perent element of three's renderer element
@@ -1292,9 +1290,9 @@ export default (function(parentElement, conf) {
                             meshs['side-top-left-pane' + frameName + i].update(a, b, c);
                             meshs['side-bottom-right-pane' + frameName + i + 1].update(a, b, c);
                         } else {
-                            meshs['side-top-left-pane' + frameName + i] = new Triangle(a, b, c, backgroundColor, opacity);
+                            meshs['side-top-left-pane' + frameName + i] = new Triangle(a, b, c, backgroundColor, null, opacity);
                             scene.add(meshs['side-top-left-pane' + frameName + i]);
-                            meshs['side-bottom-right-pane' + frameName + i + 1] = new Triangle(a, b, c, backgroundColor, opacity);
+                            meshs['side-bottom-right-pane' + frameName + i + 1] = new Triangle(a, b, c, backgroundColor, null, opacity);
                             scene.add(meshs['side-bottom-right-pane' + frameName + i + 1]);
                         }
                         j = i + 1;
