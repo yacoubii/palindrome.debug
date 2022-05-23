@@ -149,7 +149,8 @@ export class Sphere extends THREE.Mesh {
 		material.opacity=1;
 		super(geometry, material);
 	}
-	update(color){
+	update(color,x,y,z){
+		this.position.set(x,y,z);
 		this.material.color.set(color);
 	};
 }

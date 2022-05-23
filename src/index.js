@@ -4,7 +4,7 @@ import {Triangle, SimpleLine, DasheLine } from './ThreeGeometryObjects';
 import { initThreeObjects,sphereHoverInit } from './ThreeJSBasicObjects';
 import { dataGenerator } from './dataGenerator';
 import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer";
-
+import { Sphere } from './ThreeGeometryObjects';
 /**
  * @param {HTMLElement} parentElement perent element of three's renderer element
  * @param {*} conf model's configuration
@@ -1490,8 +1490,7 @@ export default (function(parentElement, conf) {
         function makeSphereContext (planePoints,layerName,metricIndex,metricColor, metricValues) {
             
             if(meshs['_sphere'+layerName+metricIndex]){
-                meshs['_sphere'+layerName+metricIndex].material.color.set( metricColor );
-                meshs['_sphere'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
+                meshs['_sphere'+layerName+metricIndex].update(metricColor,planePoints[0], planePoints[2], planePoints[1]);
                 if(meshs['_sphereHoverRegion'+layerName+metricIndex]){
                     meshs['_sphereHoverRegion'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1])
                 }
@@ -1499,12 +1498,7 @@ export default (function(parentElement, conf) {
                     meshs['_text'+layerName+metricIndex].position.set(planePoints[0], planePoints[2]+3, planePoints[1]);
                 }
             }else{
-                const geometry = new THREE.SphereGeometry( 0.8, 32, 16 );
-                const material = new THREE.MeshBasicMaterial( { color: metricColor} );
-                material.transparent = true;
-                material.needsUpdate = true;
-                material.opacity=1;
-                meshs['_sphere'+layerName+metricIndex]=new THREE.Mesh( geometry, material );
+                meshs['_sphere'+layerName+metricIndex]=new Sphere(metricColor);
                 //x,z,y
                 meshs['_sphere'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
                 scene.add( meshs['_sphere'+layerName+metricIndex] );
