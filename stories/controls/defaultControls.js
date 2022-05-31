@@ -758,7 +758,7 @@ export function defaultValues(){
     displayMode: 'dynamic',
     mainAppColor: '#00FF06',
     subAppColor: '#9FC5E8',
-    displaySides: true,
+    displaySides: false,
     gridSize: 100,
     gridDivisions: 100,
     displayGrid: true,

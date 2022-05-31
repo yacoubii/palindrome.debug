@@ -7,6 +7,7 @@ import { dcFullMap } from '../src/data_structures_examples/dc_FullMap';
 import { defaultControls, defaultValues } from './controls/defaultControls';
 import { createPalindrome } from './controls/createPalindrome';
 
+
 export default {
     title: 'Use Cases/Palindrome/Data Center example',
     argTypes: defaultControls(),

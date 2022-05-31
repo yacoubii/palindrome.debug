@@ -1,16 +1,61 @@
 //import 'babel-polyfill';
 import * as THREE from 'three';
-import {Triangle, SimpleLine, DasheLine } from './ThreeGeometryObjects';
-import { initThreeObjects,sphereHoverInit } from './ThreeJSBasicObjects';
-import { dataGenerator } from './dataGenerator';
-import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer";
-import { Sphere } from './ThreeGeometryObjects';
+import {Triangle, SimpleLine, DasheLine} from './ThreeGeometryObjects';
+import {initThreeObjects, sphereHoverInit} from './ThreeJSBasicObjects';
+import {dataGenerator} from './dataGenerator';
+import {CSS2DObject} from "three/examples/jsm/renderers/CSS2DRenderer";
+import {Sphere} from './ThreeGeometryObjects';
+import Stats from 'three/examples/jsm/libs/stats.module'
+import Worker from "worker-loader!./worker.js";
+
 /**
  * @param {HTMLElement} parentElement perent element of three's renderer element
  * @param {*} conf model's configuration
  */
-export default (function(parentElement, conf) {
-    
+export default (function (parentElement, conf) {
+
+        function WorkerPool(url) {
+            this.url = url;
+            this.pool = [];
+        }
+        WorkerPool.prototype.getWorker = function() {
+            var w;
+            if (this.pool.length > 0) {
+                w = this.pool.pop();
+            } else {
+                w =  new Worker();
+            }
+            return w;
+        }
+        WorkerPool.prototype.releaseWorker = function(w) {
+            this.pool.push(w);
+        }
+        
+        // Create a new pool
+        var my_pool = new WorkerPool("worker.js");
+        var spheres_pool = new WorkerPool("worker.js");
+        var frames_pool = new WorkerPool("worker.js");
+
+        // stats
+        var stats = new Stats();
+        var statsData = {
+            fps : {
+                value:[],
+                length :0
+            },
+            ms : {
+                value:[],
+                length :0
+            },
+            mem : {
+                value:[],
+                length :0
+            }
+        }
+
+        const startDate = new Date;
+
+
         let debug = true;
 
         // data related
@@ -19,7 +64,7 @@ export default (function(parentElement, conf) {
         // three.js related
         let lineMaterial, dashLineMaterial, lineMaterialTransparent;
         const meshs = {};
-        
+
 
         const {
             scene,
@@ -29,17 +74,12 @@ export default (function(parentElement, conf) {
             camera
         } = initThreeObjects();
 
-        renderer.domElement.addEventListener('webglcontextlost', function(e) {
-            renderer.forceContextRestore()
-            e.preventDefault();
-        });
-
-        if (conf.displayValuesOnSphereHover){
+        if (conf.displayValuesOnSphereHover) {
             //sphere hovering effect init
             sphereHoverInit(meshs, camera, scene, conf);
         }
 
-        
+
         let metricParameters = {},
             layerParameters = {},
             borderThickness = 4;
@@ -81,7 +121,10 @@ export default (function(parentElement, conf) {
         }
 
         parentElement.appendChild(renderer.domElement);
+        //renderer.domElement.id="canvas";
         parentElement.appendChild(labelsRenderer.domElement);
+        parentElement.appendChild(stats.dom);
+
 
         // TODO change this when we have a real data source
         const fileContent = new Request("default-data.json");
@@ -89,11 +132,8 @@ export default (function(parentElement, conf) {
         var clock = new THREE.Clock();
         var time = 0;
 
-        
 
         run(fileContent);
-
-
 
 
         /**
@@ -104,14 +144,14 @@ export default (function(parentElement, conf) {
         async function run(src) {
             // init data
             //const result = await fetch(src);
-            
+
             let data;
             try {
                 data = await result.json();
             } catch (error) {
                 data = conf.data;
             }
-                        
+
             newData = data;
             dataIterator = dataGenerator(data);
 
@@ -122,49 +162,49 @@ export default (function(parentElement, conf) {
                 opacity: conf.lineOpacity,
             });
             var lineVertShader = `
-                attribute float lineDistance;
-                varying float vLineDistance;
-                
-                void main() {
-                vLineDistance = lineDistance;
-                vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-                gl_Position = projectionMatrix * mvPosition;
-                }
-            `;
+               attribute float lineDistance;
+               varying float vLineDistance;
+              
+               void main() {
+               vLineDistance = lineDistance;
+               vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+               gl_Position = projectionMatrix * mvPosition;
+               }
+           `;
             var lineFragShader = `
-                uniform vec3 diffuse;
-                uniform float opacity;
-                uniform float time; // added time uniform
-            
-                uniform float dashSize;
-                uniform float gapSize;
-                uniform float dotSize;
-                varying float vLineDistance;
-                
-                void main() {
-                    float totalSize = dashSize + gapSize;
-                    float modulo = mod( vLineDistance + time, totalSize ); // time added to vLineDistance
-                float dotDistance = dashSize + (gapSize * .5) - (dotSize * .5);
-                
-                if ( modulo > dashSize && mod(modulo, dotDistance) > dotSize ) {
-                    discard;
-                }
-            
-                gl_FragColor = vec4( diffuse, opacity );
+               uniform vec3 diffuse;
+               uniform float opacity;
+               uniform float time; // added time uniform
+          
+               uniform float dashSize;
+               uniform float gapSize;
+               uniform float dotSize;
+               varying float vLineDistance;
+              
+               void main() {
+                   float totalSize = dashSize + gapSize;
+                   float modulo = mod( vLineDistance + time, totalSize ); // time added to vLineDistance
+               float dotDistance = dashSize + (gapSize * .5) - (dotSize * .5);
+              
+               if ( modulo > dashSize && mod(modulo, dotDistance) > dotSize ) {
+                   discard;
+               }
+          
+               gl_FragColor = vec4( diffuse, opacity );
 
-                
-                }
-            `;
+              
+               }
+           `;
 
             dashLineMaterial = new THREE.ShaderMaterial({
                 uniforms: {
-                  diffuse: {value: new THREE.Color(conf.frameLineColor)},
-                  dashSize: {value: conf.frameDashLineSize},
-                  gapSize: {value: 1},
-                  dotSize: {value: 0.1},
-                  opacity: {value: 1.0},
-                  time: {value: 0},
-                   // added uniform
+                    diffuse: {value: new THREE.Color(conf.frameLineColor)},
+                    dashSize: {value: conf.frameDashLineSize},
+                    gapSize: {value: 1},
+                    dotSize: {value: 0.1},
+                    opacity: {value: 1.0},
+                    time: {value: 0},
+                    // added uniform
                 },
                 side: THREE.DoubleSide,
                 vertexShader: lineVertShader,
@@ -172,7 +212,7 @@ export default (function(parentElement, conf) {
                 transparent: true
             });
 
-            dashLineMaterial.linewidth=conf.frameLineWidth;
+            dashLineMaterial.linewidth = conf.frameLineWidth;
             lineMaterialTransparent = new THREE.LineDashedMaterial({
                 color: conf.mainAppColor,
                 linewidth: conf.lineWidth,
@@ -183,16 +223,62 @@ export default (function(parentElement, conf) {
             if (conf.displayGrid) {
                 displayGrid(conf.gridSize, conf.gridDivisions);
             }
-            if (conf.displayMetricsLabels) {
-                // configuration text parameters
-                createLabels(data);
-            }
+            
+            createLabels(data);
+            
 
             render(data);
             cameraVewOptions(meshs);
         }
 
+        /**
+         * collect benchmark data
+         *
+         * @param {*} stats
+         * @param {number} duringTime
+         */
+        async function collectStatsData(stats, duringTime, epsilon) {
+            let currentDate = new Date,
+                endDate = new Date(startDate.getTime() + duringTime * 60000);
+            if (startDate.getTime() <= currentDate.getTime() && endDate.getTime() >= startDate.getTime() && currentDate.getTime() <= endDate.getTime()) {
+                let r = await stats.getValues();
+                console.log("Testing application ...");
+                if(r.fps!==undefined && r.fps>0){
+                    statsData.fps.value.push(r.fps);
+                    statsData.fps.length+=1;
+                }
+                if(r.ms!==undefined && r.ms>0){
+                    statsData.ms.value.push(r.ms);
+                    statsData.ms.length+=1;
+                }
+                if(r.mem!==undefined && r.mem>0){
+                    statsData.mem.value.push(r.mem);
+                    statsData.mem.length+=1;
+                }
+                if(
+                    currentDate.getFullYear() == endDate.getFullYear() &&
+                    currentDate.getMonth() == endDate.getMonth() &&
+                    currentDate.getDay() == endDate.getDay() &&
+                    currentDate.getHours() == endDate.getHours() &&
+                    currentDate.getMinutes() == endDate.getMinutes() &&
+                    currentDate.getSeconds() == endDate.getSeconds() &&
+                    Math.abs(currentDate.getMilliseconds() - endDate.getMilliseconds())<epsilon
 
+                )
+                {
+                    
+                    console.log('// get benchmark result');
+                     let results = {
+                         'FPS Frames rendered in the last second': (( (statsData.fps.value).reduce((a, b) => a + b)) / statsData.fps.length).toFixed(2),
+                         'MS Milliseconds needed to render a frame': (((statsData.ms.value).reduce((a, b) => a + b)) / statsData.ms.length).toFixed(2),
+                         'MB MBytes of allocated memory': (((statsData.mem.value).reduce((a, b) => a + b)) / statsData.mem.length).toFixed(2)
+                     }
+                    console.log({results});
+                }
+            }
+
+
+        }
 
         /**
          * Adds a grid at Z = 0
@@ -245,13 +331,13 @@ export default (function(parentElement, conf) {
             labelCanvas.setAttribute("className", labelName);
             labelCanvas.setAttribute("width", 1200 + " px");
             labelCanvas.setAttribute("height", 600 + " px");
-            
+
             //prepare context
             let labelContext = labelCanvas.getContext('2d');
             labelContext.font = parameters["labelItalic"] + " " + parameters["labelBold"] + " " + parameters['labelSize'] + "px " + parameters['characterFont'];
             labelContext.lineWidth = borderThickness;
             labelContext.textAlign = 'center';
-            labelContext.fillStyle = parameters['labelColor'];        
+            labelContext.fillStyle = parameters['labelColor'];
 
             //reassign values (design pattern)
             let w = labelCanvas.width,
@@ -356,7 +442,7 @@ export default (function(parentElement, conf) {
          * @param {*} map material map
          */
         function updateSvgSrc(svg, htmlElement, map) {
-            svg.onload = function() {
+            svg.onload = function () {
                 map.needsUpdate = true;
                 svg.src = 'data:image/svg+xml,' + encodeURIComponent(
                     '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600">' +
@@ -405,7 +491,7 @@ export default (function(parentElement, conf) {
             let sections = text.split("\n");
             let str, wordWidth, currentLine = 0,
                 maxHeight, maxWidth = 0;
-            let printNextLine = function(str) {
+            let printNextLine = function (str) {
                 if (draw) {
                     oContext.fillText(str, x, y + (lineHeight * currentLine));
                     currentLine++;
@@ -463,9 +549,9 @@ export default (function(parentElement, conf) {
          * @param {string} labelUnit the unit of label
          */
         function getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit, metricData) {
-            if(metricData && labelUnit==='%'){
+            if (metricData && labelUnit === '%') {
                 //percentage handle
-                labelValue=(labelValue/metricData.max)*100;
+                labelValue = (labelValue / metricData.max) * 100;
             }
             let data = '';
             if (conf.metricsLabelsRenderingFormat === "Text") {
@@ -515,7 +601,7 @@ export default (function(parentElement, conf) {
                     tbody.push("Unit");
                     tHead.push(labelUnit);
                 }
-                data = { 0: tbody, 1: tHead };
+                data = {0: tbody, 1: tHead};
             }
             return data;
         }
@@ -532,7 +618,7 @@ export default (function(parentElement, conf) {
          */
         function create2DMetricsLabels(key, labelName, labelType, labelValue, metricIndex, labelUnit) {
             //console.log(labelValue);
-            let data = getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit,null),
+            let data = getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit, null),
                 div = document.createElement('div');
             div.className = 'label ' + labelName;
             div.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
@@ -544,7 +630,7 @@ export default (function(parentElement, conf) {
                 div.appendChild(createHtmlText(data, false, true, metricParameters));
             }
             const metricsLabels = new CSS2DObject(div);
-            
+
             metricsLabels.key = key;
             metricsLabels.name = labelName;
             metricsLabels.dataType = labelType;
@@ -566,8 +652,8 @@ export default (function(parentElement, conf) {
         function create3DMetricsLabels(key, labelName, labelType, labelValue, metricIndex, labelUnit) {
             let texture = new THREE.Texture(),
                 textureImage,
-                data = getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit,null);
-            
+                data = getMetricsLabelsStructureData(labelName, labelType, labelValue, labelUnit, null);
+
             labelDiv[labelName] = document.createElement('div');
             labelDiv[labelName].className = 'label ' + labelName;
             labelDiv[labelName].setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
@@ -575,7 +661,7 @@ export default (function(parentElement, conf) {
                 // canvas contents will be used for a texture
                 if (conf.metricsLabels3DRenderingMode === 'Canvas') {
                     // canvas contents will be used for a texture
-                    
+
                     textureImage = createLabelCanvas(labelName, data, metricParameters);
                 } else if (conf.metricsLabels3DRenderingMode === 'Svg') {
                     labelDiv[labelName].appendChild(createHtmlText(data, false, false, metricParameters));
@@ -590,15 +676,15 @@ export default (function(parentElement, conf) {
             }
             texture.image = textureImage;
 
-            setTimeout( function () {
-                    // assigning data to HTMLImageElement.src is asynchronous 
-                    // using setTimeout() avoids the warning "Texture marked for update but image is incomplete"
-                    texture.needsUpdate = true;
-            }, 0 );
-                        
+            setTimeout(function () {
+                // assigning data to HTMLImageElement.src is asynchronous
+                // using setTimeout() avoids the warning "Texture marked for update but image is incomplete"
+                texture.needsUpdate = true;
+            }, 0);
+
             texture.minFilter = THREE.NearestFilter;
-            
-            let spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
+
+            let spriteMaterial = new THREE.SpriteMaterial({map: texture, depthWrite: false, transparent: true}),
                 metricsLabels = new THREE.Sprite(spriteMaterial);
             spriteMaterial.needsUpdate = true;
             metricsLabels.scale.set(2 * metricParameters["labelSize"], 1 * metricParameters["labelSize"], metricParameters["labelSize"]);
@@ -608,7 +694,7 @@ export default (function(parentElement, conf) {
             metricsLabels.metricIndex = metricIndex;
             metricsLabels.labelUnit = labelUnit;
             //console.log("data",metricsLabels);
-            
+
             return metricsLabels;
 
             //todo : reimplement so it does not interfere with 'text sprite' method
@@ -658,13 +744,13 @@ export default (function(parentElement, conf) {
             labelDiv[labelName].appendChild(createHtmlText(labelName, true, true, layerParameters));
             textureImage = htmlToSvg(labelDiv[labelName]);
             texture.image = textureImage;
-            setTimeout( function () {
-                // assigning data to HTMLImageElement.src is asynchronous 
+            setTimeout(function () {
+                // assigning data to HTMLImageElement.src is asynchronous
                 // using setTimeout() avoids the warning "Texture marked for update but image is incomplete"
                 texture.needsUpdate = true;
-            }, 0 );
+            }, 0);
             texture.minFilter = THREE.NearestFilter;
-            let spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
+            let spriteMaterial = new THREE.SpriteMaterial({map: texture, depthWrite: false, transparent: true}),
                 layersLabels = new THREE.Sprite(spriteMaterial);
             spriteMaterial.needsUpdate = true;
             layersLabels.scale.set(2 * layerParameters["labelSize"], 1 * layerParameters["labelSize"], layerParameters["labelSize"]);
@@ -691,45 +777,45 @@ export default (function(parentElement, conf) {
                 let metricLabelsIds = [],
                     layersLabelsIds = [];
                 //console.log(metrics);
-                if (conf.displayMetricsLabels) {
-                    for (const [key, value] of Object.entries(metrics)) {
-                        if (metricLabelsIds.includes(key) === true) {
-                            console.warn("This layer contains two times the same metric key", [layer]);
-                            break;
-                        } else {
-                            metricLabelsIds.push(key)
-                            let current = value.current;
-                            let min = value.min;
-                            let med = value.med;
-                            let max = value.max;
-                            if(value.unit==='%'){
-                                current=(value.current/value.max)*100;
-                                min=(value.min/value.max)*100;
-                                med=(value.med/value.max)*100;
-                                max=(value.max/value.max)*100;
-                                
-                            }
-                            if (conf.metricsLabelsRenderingMode === "2D") {
-                                scene.add(create2DMetricsLabels(key, value.label, 'current', current, metricIndex, value.unit));
-                                if (conf.displayAllMetricsLabels) {
-                                    scene.add(create2DMetricsLabels(key, value.label, 'min', min, metricIndex, value.unit));
-                                    scene.add(create2DMetricsLabels(key, value.label, 'med', med, metricIndex, value.unit));
-                                    scene.add(create2DMetricsLabels(key, value.label, 'max', max, metricIndex, value.unit));
-                                }
-                            } else if (conf.metricsLabelsRenderingMode === "3D") {
-                                scene.add(create3DMetricsLabels(key, value.label, 'current', current, metricIndex, value.unit));
-                                
+               
+                for (const [key, value] of Object.entries(metrics)) {
+                    if (metricLabelsIds.includes(key) === true) {
+                        console.warn("This layer contains two times the same metric key", [layer]);
+                        break;
+                    } else {
+                        metricLabelsIds.push(key)
+                        let current = value.current;
+                        let min = value.min;
+                        let med = value.med;
+                        let max = value.max;
+                        if (value.unit === '%') {
+                            current = (value.current / value.max) * 100;
+                            min = (value.min / value.max) * 100;
+                            med = (value.med / value.max) * 100;
+                            max = (value.max / value.max) * 100;
 
-                                if (conf.displayAllMetricsLabels) {
-                                    scene.add(create3DMetricsLabels(key, value.label, 'min', min, metricIndex, value.unit));
-                                    scene.add(create3DMetricsLabels(key, value.label, 'med', med, metricIndex, value.unit));
-                                    scene.add(create3DMetricsLabels(key, value.label, 'max', max, metricIndex, value.unit));
-                                }
+                        }
+                        if (conf.metricsLabelsRenderingMode === "2D") {
+                            scene.add(create2DMetricsLabels(key, value.label, 'current', current, metricIndex, value.unit));
+                            if (conf.displayAllMetricsLabels) {
+                                scene.add(create2DMetricsLabels(key, value.label, 'min', min, metricIndex, value.unit));
+                                scene.add(create2DMetricsLabels(key, value.label, 'med', med, metricIndex, value.unit));
+                                scene.add(create2DMetricsLabels(key, value.label, 'max', max, metricIndex, value.unit));
+                            }
+                        } else if (conf.metricsLabelsRenderingMode === "3D") {
+                            scene.add(create3DMetricsLabels(key, value.label, 'current', current, metricIndex, value.unit));
+
+
+                            if (conf.displayAllMetricsLabels) {
+                                scene.add(create3DMetricsLabels(key, value.label, 'min', min, metricIndex, value.unit));
+                                scene.add(create3DMetricsLabels(key, value.label, 'med', med, metricIndex, value.unit));
+                                scene.add(create3DMetricsLabels(key, value.label, 'max', max, metricIndex, value.unit));
                             }
                         }
                     }
                 }
-                if (conf.displayLayersLabels && conf.displayMetricsLabels) {
+                
+                if (conf.displayLayersLabels) {
                     for (const [key, value] of Object.entries(layers)) {
                         if (layersLabelsIds.includes(key) === true) {
                             console.warn("This layer contains two times the same metric key", [layer]);
@@ -740,7 +826,7 @@ export default (function(parentElement, conf) {
                                 scene.add(create2DLayersLabels(key, value.label, layerIndex));
                             } else if (conf.layersLabelsRenderingMode === "3D") {
                                 layersLabelsIds.push(key);
-                                
+
                                 scene.add(create3DLayersLabels(key, value.label, layerIndex));
                             }
                         }
@@ -752,28 +838,61 @@ export default (function(parentElement, conf) {
             }
         }
 
-        function ObjectLength( object ) {
-            var length = 0;
-            for( var key in object ) {
-                if( object.hasOwnProperty(key) ) {
-                    ++length;
+
+        function drawLayer(layer,metricValue,metricsNumber,layerStatus){
+            if (conf.displayLayers) {
+
+                for (let i = 0; i < metricsNumber; i++) {
+                    //draws innner layer shapes
+                    if (conf.layerDisplayMode === "static") {
+                        //console.log(layerStatus);
+                        //drawTrianglesInALayer(layer + '_mintoMedLayerShape', metricValue.min, metricValue.med, i, metricsNumber, conf.layerMidColor);
+                        drawTrianglesInALayer(layer + '_medtoMaxLayerShape', metricValue.med, metricValue.max, i, metricsNumber, layerColorDecidedByLayerStatus(layerStatus));
+                    } else if (conf.layerDisplayMode === "mixed") {
+                        drawTrianglesInALayer(layer + '_mintoCurLayerShape', metricValue.min, metricValue.current, i, metricsNumber, conf.layerMidColor);
+                        drawTrianglesInALayer(layer + '_curtoMaxLayerShape', metricValue.current, metricValue.max, i, metricsNumber, layerColorDecidedByLayerStatus(layerStatus));
+                    }
+                    //todo : implement better behavior to see ranges
+                    else if (conf.layerDisplayMode === "dynamic") {
+                        drawTrianglesInALayer(layer + '_mintoCurLayerShape', metricValue.min, metricValue.current, i, metricsNumber, layerColorDecidedByLayerStatus(layerStatus));
+                    }
                 }
             }
-            return length;
-        };
+        }
+
 
 
         /**
          * Create and update every mesh to match the latest data
          */
         function updateMeshs() {
+
             if (conf.mockupData) {
                 newData = dataIterator.next().value;
             }
+
+            //drawing layers in parallel
+            let zAxisWorker = conf.zPlaneInitial;
+            let iteration = 0;
+            for(let layer in newData){
+                iteration+=1;   
+                var worker = my_pool.getWorker();
+                if(iteration!=1){
+                    zAxisWorker -= conf.zPlaneMultilayer; 
+                }
+                worker.postMessage({subject:'layer computations',newData,layer,psize:conf.palindromeSize,zAxisWorker,metricMagnifier:conf.metricMagnifier,zPlaneMultilayer:conf.zPlaneMultilayer,zPlaneInitial:conf.zPlaneInitial});   
+            }
+            worker.onmessage = function(e) {
+                if(e.data.subject == 'layer computations'){
+                    drawLayer(e.data.layer,e.data.metricValue,e.data.metricsNumber,e.data.layerStatus);
+                }
+                my_pool.releaseWorker(worker);
+            }
+
             let zAxis = conf.zPlaneInitial,
                 previousMetric = null,
                 previousLayer = null,
-                previousLayerStatus=null,
+                previousLayerStatus = null,
                 metricIndex = 0,
                 layerIndex = 0;
             for (let layer in newData) {
@@ -782,6 +901,7 @@ export default (function(parentElement, conf) {
                 const metrics = newData[layer].metrics,
                     layers = newData[layer].layer,
                     metricsNumber = Object.values(metrics).length;
+                
                 //this is the new total of current's
                 const metricCurrentTotal = Object.values(metrics).map(item => item.current).reduce((a, b) => a + b, 0);
                 //this is the new total of max's
@@ -789,19 +909,30 @@ export default (function(parentElement, conf) {
                 //todo : status colors shall map with default colors
                 const layerStatus = ((metricCurrentTotal / metricMaxTotal) * 100);
                 //console.log(layer,layerStatus);
+
+                
                 let metricsDivider, metricValue = {};
                 metricValue.max = layerPoints(Object.values(metrics).map(item => (conf.palindromeSize / item.max) * item.max), zAxis);
                 metricValue.med = layerPoints(Object.values(metrics).map(item => (conf.palindromeSize / item.max) * item.med), zAxis);
                 metricValue.min = layerPoints(Object.values(metrics).map(item => (conf.palindromeSize / item.max) * item.min), zAxis);
                 metricValue.current = layerPoints(Object.values(metrics).map(item => (conf.palindromeSize / item.max) * item.current), zAxis);
                 const metricsPositions = [metricValue.max, metricValue.med, metricValue.min];
+
+                //draws and update layers
+                //todo number of shapes shall be dynamic
+                //todo outer lines shall be optional and for all the shapes
+                
+                //drawLayer(layer,metricValue,metricsNumber,layerStatus);
+                
+                
                 
                 // displayMode
                 if (conf.displayMode === "dynamic") {
                     metricsDivider = "current";
                 } else if (conf.displayMode === "static") {
                     metricsDivider = "max";
-                } else if (conf.displayMode === "debug") {} else {
+                } else if (conf.displayMode === "debug") {
+                } else {
                     break;
                 }
 
@@ -821,92 +952,45 @@ export default (function(parentElement, conf) {
                 //update metrics label, layers label and their positions
                 let sortedMetricsLabels = scene.children.filter((item) => item.metricIndex === metricIndex),
                     sortedLayersLabels = scene.children.filter((item) => item.layerIndex === layerIndex);
-                
-                
 
                 // update metrics
-                if (conf.displayMetricsLabels) {
-                    for (let i = 0; i < sortedMetricsLabels.length; i++) {
-                        const metricsLabels = sortedMetricsLabels[i];
-                        if (metrics[metricsLabels.key]) {
-                            const metricData = metrics[metricsLabels.key];
-                            const metricsLabelsName = metricData.label;
-                            const metricsLabelsType = metricsLabels.dataType;
-                            let metricsLabelsUnit = metricsLabels.labelUnit;
-                            const metricsLabelsIndex = Object.keys(metrics).indexOf(metricsLabels.key);
-                            const metricsLabelsValue = Object.values(metrics)[metricsLabelsIndex][metricsLabelsType].toFixed();
-                            const labelPositions = metricValue[metricsLabelsType][metricsLabelsIndex];
-                            if (debug === true) {
-                                debug = false;
-                            }
-                            // update label data
-                            
-                            
-                            metricsLabels.data = getMetricsLabelsStructureData(metricsLabelsName, metricsLabelsType, metricsLabelsValue, metricsLabelsUnit, metricData)
-                            let x = labelPositions[0],
-                                y = labelPositions[2],
-                                z = labelPositions[1];
-                            if (conf.metricsLabelsRenderingMode === "2D") {
-                                if (conf.metricsLabelsRenderingFormat === "Text") {
-                                    // update text label
-                                    metricsLabels.element.getElementsByTagName('p').item(0).textContent = metricsLabels.data;
-                                } else if (conf.metricsLabelsRenderingFormat === "Table") {
-                                    // update table
-                                    updateHtmlTable(metricsLabels.element.getElementsByTagName('table').item(0), metricsLabels.data);
-                                } else if (conf.metricsLabelsRenderingFormat === "Json") {
-                                    // update json
-                                    metricsLabels.element.getElementsByTagName('p').item(0).textContent = metricsLabels.data;
-                                }
-                            } else if (conf.metricsLabelsRenderingMode === "3D") {
-                                //get the label texture from the material map
-                                let metricsLabelsTexture = metricsLabels.material.map.image;
-                                if (conf.metricsLabelsRenderingFormat === "Text") {
-                                    if (conf.metricsLabels3DRenderingMode === "Canvas") {
-                                        //here metricsLabelsTexture is a canvas
-                                        let labelContext = metricsLabelsTexture.getContext('2d')
-                                            //clear the canvas
-                                        labelContext.clearRect(0, 0, metricsLabelsTexture.width, metricsLabelsTexture.height);
-                                        //update the canvas
-                                        addMultiLineText(metricsLabels.data, metricsLabelsTexture.width / 2, metricsLabelsTexture.height / 2, metricsLabelsTexture.style.fontSize, metricsLabelsTexture.width, labelContext);
-                                        //update the three.js object material map
-                                        metricsLabels.material.map.needsUpdate = true;
-                                        y = y + 0.4;
-                                    } else if (conf.metricsLabels3DRenderingMode === "Svg") {
-                                        // here metricLabelTexture is a table svg
-                                        labelDiv[metricsLabelsName].getElementsByTagName('p').item(0).innerHTML = metricsLabels.data;
-                                        updateSvgSrc(metricsLabelsTexture, labelDiv[metricsLabelsName], metricsLabels.material.map);
-                                        y = y + 1;
-                                    }
-                                } else if (conf.metricsLabelsRenderingFormat === "Table") {
-                                    // here metricsLabelsTexture is a table svg
-                                    updateHtmlTable(labelDiv[metricsLabelsName].getElementsByTagName('table').item(0), metricsLabels.data);
-                                    updateSvgSrc(metricsLabelsTexture, labelDiv[metricsLabelsName], metricsLabels.material.map);
-                                    y = y + 1.8;
-                                } else if (conf.metricsLabelsRenderingFormat === "Json") {
-                                    // here metricsLabelsTexture is a json svg
-                                    labelDiv[metricsLabelsName].getElementsByTagName('p').item(0).innerHTML = metricsLabels.data;
-                                    updateSvgSrc(metricsLabelsTexture, labelDiv[metricsLabelsName], metricsLabels.material.map);
-                                    y = y + 1;
-                                }
-                            }
-                            if(x>=0){
-                                x+=2;
-                            }else{
-                                x-=2;
-                            }
-                            metricsLabels.position.set(x, y, z);
-                            // top x
-                            xTab.push(labelPositions[0]);
-                            zTab.push(labelPositions[2]);
-                            yTab.push(labelPositions[1]);
+                for (let i = 0; i < sortedMetricsLabels.length; i++) {
+                    const metricsLabels = sortedMetricsLabels[i];
+                    if (metrics[metricsLabels.key]) {
+                        const metricsLabelsType = metricsLabels.dataType;
+                        const metricsLabelsIndex = Object.keys(metrics).indexOf(metricsLabels.key);
+                        const labelPositions = metricValue[metricsLabelsType][metricsLabelsIndex];
+                        if (debug === true) {
+                            debug = false;
                         }
+                        // update label data
+                        let x = labelPositions[0],
+                            y = labelPositions[2],
+                            z = labelPositions[1];
+
+                        if (x >= 0) {
+                            x += 2;
+                        } else {
+                            x -= 2;
+                        }
+                        if(conf.displayMetricsLabels==false){
+                            metricsLabels.visible=false;
+                        }else{
+                            metricsLabels.position.set(x, y, z);
+                        }
+                        // top x
+                        xTab.push(labelPositions[0]);
+                        zTab.push(labelPositions[2]);
+                        yTab.push(labelPositions[1]);
                     }
                 }
-
+                
+                
                 // display layer
                 let layersLabels = sortedLayersLabels[sortedLayersLabels.length - 1],
                     resize = 0.5;
-                if (conf.displayLayersLabels && conf.displayMetricsLabels) {
+ 
+                if (conf.displayLayersLabels) {
                     if (conf.layersLabelsRenderingMode === "2D") {
                         resize = -1
                     }
@@ -972,7 +1056,7 @@ export default (function(parentElement, conf) {
                     }
                     // display frame background
                     if (conf.displayFramesBackground) {
-                       drawFramesBackground(positions, frameName, conf.frameBackgroundColor, conf.frameOpacity);
+                        drawFramesBackground(positions, frameName, conf.frameBackgroundColor, conf.frameOpacity);
                     }
                     // display arrow Line
                     if (conf.displayFramesArrow) {
@@ -1015,7 +1099,7 @@ export default (function(parentElement, conf) {
                                 meshs['side-bottom-right-pane' + layer + i].update(d, b, a, colorA, colorB);
                             } else {
                                 //init objects
-                                
+
                                 meshs['side-bias-line' + layer + i] = new SimpleLine(sideSizeOdd[i], a, lineMaterialTransparent);
                                 scene.add(meshs['side-bias-line' + layer + i]);
                                 meshs['side-straight-line' + layer + i] = new SimpleLine(b, a, lineMaterial);
@@ -1029,28 +1113,6 @@ export default (function(parentElement, conf) {
                         }
                     } else {
                         //todo : describe this case
-                    }
-                }
-
-                //draws and update layers
-                //todo number of shapes shall be dynamic
-                //todo outer lines shall be optional and for all the shapes
-                if (conf.displayLayers) {
-                    
-                    for (let i = 0; i < metricsNumber; i++) {
-                        //draws innner layer shapes
-                        if (conf.layerDisplayMode === "static") {
-                            //console.log(layerStatus);
-                            //drawTrianglesInALayer(layer + '_mintoMedLayerShape', metricValue.min, metricValue.med, i, metricsNumber, conf.layerMidColor);
-                            drawTrianglesInALayer(layer + '_medtoMaxLayerShape', metricValue.med, metricValue.max, i, metricsNumber, layerColorDecidedByLayerStatus(layerStatus));
-                        } else if (conf.layerDisplayMode === "mixed") {
-                            drawTrianglesInALayer(layer + '_mintoCurLayerShape', metricValue.min, metricValue.current, i, metricsNumber, conf.layerMidColor);
-                            drawTrianglesInALayer(layer + '_curtoMaxLayerShape', metricValue.current, metricValue.max, i, metricsNumber, layerColorDecidedByLayerStatus(layerStatus));
-                        }
-                        //todo : implement better behavior to see ranges
-                        else if (conf.layerDisplayMode === "dynamic") {
-                            drawTrianglesInALayer(layer + '_mintoCurLayerShape', metricValue.min, metricValue.current, i, metricsNumber, layerColorDecidedByLayerStatus(layerStatus));
-                        }
                     }
                 }
 
@@ -1112,8 +1174,6 @@ export default (function(parentElement, conf) {
         }
 
 
-        
-
         /**
          * Draw the triangles in a layer
          *
@@ -1125,17 +1185,16 @@ export default (function(parentElement, conf) {
          * @param {string} color material color
          */
         function drawTrianglesInALayer(layer, planePointOne, planePointTwo, i, planePointLength, color) {
-            
+
             if (meshs['19' + layer + i]) { // if init done
-                
+
                 meshs['19' + layer + i].update(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength])
                 meshs['20' + layer + i].update(planePointTwo[(i + 1) % planePointLength], planePointOne[(i + 1) % planePointLength], planePointOne[(i) % planePointLength])
-                meshs['19' + layer + i].material.color.set( color );
-                meshs['20' + layer + i].material.color.set( color );
+                meshs['19' + layer + i].material.color.set(color);
+                meshs['20' + layer + i].material.color.set(color);
             }
             //init objects
             else {
-                
                 meshs['19' + layer + i] = new Triangle(planePointOne[i], planePointTwo[i], planePointTwo[(i + 1) % planePointLength], color, null, null);
                 scene.add(meshs['19' + layer + i]);
                 meshs['20' + layer + i] = new Triangle(planePointTwo[(i + 1) % planePointLength], planePointOne[(i + 1) % planePointLength], planePointOne[(i) % planePointLength], color, null, null);
@@ -1143,11 +1202,11 @@ export default (function(parentElement, conf) {
             }
         }
 
-        function animateFrameDashedLine(){
+        function animateFrameDashedLine() {
             for (const [key, value] of Object.entries(meshs)) {
-                if(key.includes("_rangeDasheline")){
-                   time += clock.getDelta()*3;
-                   meshs[key].material.uniforms.time.value = time;
+                if (key.includes("_rangeDasheline")) {
+                    time += clock.getDelta() * 3;
+                    meshs[key].material.uniforms.time.value = time;
                 }
             }
         }
@@ -1157,15 +1216,16 @@ export default (function(parentElement, conf) {
          * Rendering loop
          */
         function render() {
+            //stats.begin();
             updateMeshs();
             controls.update();
+            
+            //collectStatsData(stats, 1, 25);
+            //stats.end();
+            requestAnimationFrame(render);
             renderer.render(scene, camera);
             labelsRenderer.render(scene, camera);
-            //animateFrameDashedLine();
-            requestAnimationFrame(render);
         }
-
-
 
 
         /**
@@ -1199,7 +1259,7 @@ export default (function(parentElement, conf) {
          * @param {*} meshs three.js mesh
          */
         function cameraVewOptions(meshs) {
-           
+
             let tabX = [],
                 tabY = [],
                 tabZ = [];
@@ -1210,11 +1270,11 @@ export default (function(parentElement, conf) {
 
             //get the center of position of objects
             for (let key in meshs) {
-                if(!key.includes("_text"))
-                    if(meshs[key].visible){
+                if (!key.includes("_text"))
+                    if (meshs[key].visible) {
                         let object = meshs[key],
-                        bs = object.geometry.boundingSphere,
-                        vector = bs.center.clone();
+                            bs = object.geometry.boundingSphere,
+                            vector = bs.center.clone();
                         tabX.push(vector.x);
                         tabY.push(vector.y);
                         tabZ.push(vector.z);
@@ -1309,8 +1369,8 @@ export default (function(parentElement, conf) {
          * @param {*} sphereCoords spheres coordinates
          */
         function makeSphereContextsStatus(sphereCoords, layerName, metrics) {
-            for (var i = 0; i < sphereCoords.current.length; i++){
-                makeSphereContext(sphereCoords.current[i],layerName,i.toString(),metricColor(metrics[i]),metrics[i]);
+            for (var i = 0; i < sphereCoords.current.length; i++) {
+                makeSphereContext(sphereCoords.current[i], layerName, i.toString(), metricColor(metrics[i]), metrics[i]);
             }
         }
 
@@ -1320,17 +1380,18 @@ export default (function(parentElement, conf) {
          *
          * @param {number} value sphere current value
          */
-        function metricColor (value) {
+        function metricColor(value) {
             let cur = value.current;
-            let min =  value.min;
+            let min = value.min;
             let max = value.max;
             let med = value.med;
-            let color = conf.sphereColorLow ;
+            let color = conf.sphereColorLow;
             if (conf.layerStatusControl) {
                 if (cur >= min && cur <= med) {
                     return color;
                 } else if (cur > med && cur <= max) {
-                    color = conf.sphereColorMed;                    ;
+                    color = conf.sphereColorMed;
+                    ;
                     return color;
                 } else {
                     color = conf.sphereColorHigh;
@@ -1338,7 +1399,7 @@ export default (function(parentElement, conf) {
                 }
             }
         }
-        
+
         /**
          * Add text in the top of a sphere
          *
@@ -1348,8 +1409,8 @@ export default (function(parentElement, conf) {
          * @param {number} z z coordinate
          * @param {*} data other data in case of json or table display
          */
-        function makeText( labelName, x,y,z,data) {
-            if(conf.metricsLabelsRenderingMode === "3D") {
+        function makeText(labelName, x, y, z, data) {
+            if (conf.metricsLabelsRenderingMode === "3D") {
                 let texture = new THREE.Texture(),
                     textureImage;
                 labelDiv[labelName] = document.createElement('div');
@@ -1357,35 +1418,33 @@ export default (function(parentElement, conf) {
                 labelDiv[labelName].appendChild(createCardText(labelName, "DimGray", layerParameters));
                 textureImage = htmlToSvg(labelDiv[labelName]);
                 texture.image = textureImage;
-                setTimeout( function () {
-                    // assigning data to HTMLImageElement.src is asynchronous 
+                setTimeout(function () {
+                    // assigning data to HTMLImageElement.src is asynchronous
                     // using setTimeout() avoids the warning "Texture marked for update but image is incomplete"
                     texture.needsUpdate = true;
-                }, 0 );
+                }, 0);
                 texture.minFilter = THREE.NearestFilter;
-                let spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
+                let spriteMaterial = new THREE.SpriteMaterial({map: texture, depthWrite: false, transparent: true}),
                     layersLabels = new THREE.Sprite(spriteMaterial);
                 spriteMaterial.needsUpdate = true;
                 layersLabels.scale.set(2 * layerParameters["labelSize"], 1 * layerParameters["labelSize"], layerParameters["labelSize"]);
                 layersLabels.name = labelName;
-                layersLabels.position.set(x,y,z);
+                layersLabels.position.set(x, y, z);
                 return layersLabels;
-            } else if(conf.metricsLabelsRenderingMode === "2D"){
+            } else if (conf.metricsLabelsRenderingMode === "2D") {
                 let div = document.createElement('div');
                 div.className = 'label ' + labelName;
-                if (conf.metricsLabelsRenderingFormat === "Text"){
+                if (conf.metricsLabelsRenderingFormat === "Text") {
                     div.appendChild(createCardText(labelName, "DimGray", layerParameters));
-                }
-                else if (conf.metricsLabelsRenderingFormat === "Table") {
+                } else if (conf.metricsLabelsRenderingFormat === "Table") {
                     div.appendChild(createHtmlTable(data, layerParameters));
-                }
-                else if (conf.metricsLabelsRenderingFormat === "Json") {
-                   
+                } else if (conf.metricsLabelsRenderingFormat === "Json") {
+
                     div.appendChild(createCardText(data, "DimGray", layerParameters));
                 }
                 const layersLabels = new CSS2DObject(div);
                 layersLabels.name = labelName;
-                layersLabels.position.set(x,y,z);
+                layersLabels.position.set(x, y, z);
                 return layersLabels;
             }
 
@@ -1404,8 +1463,8 @@ export default (function(parentElement, conf) {
             p.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
             p.style.color = 'white';
             p.style.fontSize = '20px';
-            p.style.backgroundColor=cardBackground;
-            p.style.padding="8px"
+            p.style.backgroundColor = cardBackground;
+            p.style.padding = "8px"
             p.style.fontFamily = parameters['characterFont'];
             p.innerText = labelText;
             return p;
@@ -1440,12 +1499,17 @@ export default (function(parentElement, conf) {
          * @param {number} metrics the index of the metric
          * @param {*} planePoints sphere coordinates
          */
-        function makeSphereFieldOfHover(layerName,metricIndex,planePoints){
-            const planeGeometry = new THREE.SphereGeometry( 2, 32, 16 );
-            const planeMaterial = new THREE.MeshBasicMaterial( {color: "grey", side: THREE.DoubleSide, transparent: true, opacity:1} );
-            planeMaterial.needsUpdate=true;
-            const mesh = new THREE.Mesh( planeGeometry, planeMaterial );
-            mesh.name = '_sphereHoverRegion'+layerName+metricIndex;
+        function makeSphereFieldOfHover(layerName, metricIndex, planePoints) {
+            const planeGeometry = new THREE.SphereGeometry(2, 32, 16);
+            const planeMaterial = new THREE.MeshBasicMaterial({
+                color: "grey",
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 1
+            });
+            planeMaterial.needsUpdate = true;
+            const mesh = new THREE.Mesh(planeGeometry, planeMaterial);
+            mesh.name = '_sphereHoverRegion' + layerName + metricIndex;
             mesh.position.set(planePoints[0], planePoints[2], planePoints[1]);
             mesh.visible = false;
             mesh.quaternion.copy(camera.quaternion);
@@ -1459,20 +1523,19 @@ export default (function(parentElement, conf) {
          * @param {number} metrics the index of the metric
          * @param {*} planePoints sphere coordinates
          */
-        function makeSphereText(planePoints, metricValues){
-            const text = "Min = "+metricValues.min+". Max= "+metricValues.max+". Med= "+metricValues.med;
-            const obj = {0:['Min','Max','Med'],1:[metricValues.min, metricValues.max, metricValues.med]};
-            const json = {'Min':metricValues.min, 'Max':metricValues.max,'Med':metricValues.med}
+        function makeSphereText(planePoints, metricValues) {
+            const text = "Min = " + metricValues.min + ". Max= " + metricValues.max + ". Med= " + metricValues.med;
+            const obj = {0: ['Min', 'Max', 'Med'], 1: [metricValues.min, metricValues.max, metricValues.med]};
+            const json = {'Min': metricValues.min, 'Max': metricValues.max, 'Med': metricValues.med}
             let mesh;
-            if(conf.metricsLabelsRenderingFormat === "Json"){
-                mesh= makeText(text,planePoints[0], planePoints[2]+3, planePoints[1],JSON.stringify(json));
+            if (conf.metricsLabelsRenderingFormat === "Json") {
+                mesh = makeText(text, planePoints[0], planePoints[2] + 3, planePoints[1], JSON.stringify(json));
+            } else {
+                mesh = makeText(text, planePoints[0], planePoints[2] + 3, planePoints[1], obj);
             }
-            else {
-                mesh = makeText(text,planePoints[0], planePoints[2]+3, planePoints[1],obj);
-            }
-            mesh.visible=false;
-            if(conf.metricsLabelsRenderingMode === "2D"){
-                mesh.element.style.display="none";
+            mesh.visible = false;
+            if (conf.metricsLabelsRenderingMode === "2D") {
+                mesh.element.style.display = "none";
             }
             return mesh;
         }
@@ -1487,32 +1550,32 @@ export default (function(parentElement, conf) {
          * @param {number} metricColor the index of the metric
          * @param {number} metricValues the index of the metric
          */
-        function makeSphereContext (planePoints,layerName,metricIndex,metricColor, metricValues) {
-            
-            if(meshs['_sphere'+layerName+metricIndex]){
-                meshs['_sphere'+layerName+metricIndex].update(metricColor,planePoints[0], planePoints[2], planePoints[1]);
-                if(meshs['_sphereHoverRegion'+layerName+metricIndex]){
-                    meshs['_sphereHoverRegion'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1])
+        function makeSphereContext(planePoints, layerName, metricIndex, metricColor, metricValues) {
+
+            if (meshs['_sphere' + layerName + metricIndex]) {
+                meshs['_sphere' + layerName + metricIndex].update(metricColor, planePoints[0], planePoints[2], planePoints[1]);
+                if (meshs['_sphereHoverRegion' + layerName + metricIndex]) {
+                    meshs['_sphereHoverRegion' + layerName + metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1])
                 }
-                if(meshs['_text'+layerName+metricIndex]){
-                    meshs['_text'+layerName+metricIndex].position.set(planePoints[0], planePoints[2]+3, planePoints[1]);
+                if (meshs['_text' + layerName + metricIndex]) {
+                    meshs['_text' + layerName + metricIndex].position.set(planePoints[0], planePoints[2] + 3, planePoints[1]);
                 }
-            }else{
-                meshs['_sphere'+layerName+metricIndex]=new Sphere(metricColor);
+            } else {
+                meshs['_sphere' + layerName + metricIndex] = new Sphere(metricColor);
                 //x,z,y
-                meshs['_sphere'+layerName+metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
-                scene.add( meshs['_sphere'+layerName+metricIndex] );
-                
-                if (conf.displayValuesOnSphereHover){
-                    meshs['_sphereHoverRegion'+layerName+metricIndex]= makeSphereFieldOfHover(layerName,metricIndex,planePoints);
-                    scene.add( meshs['_sphereHoverRegion'+layerName+metricIndex] );
-                    
-                    meshs['_text'+layerName+metricIndex] = makeSphereText(planePoints, metricValues);
-                    scene.add(meshs['_text'+layerName+metricIndex]);
+                meshs['_sphere' + layerName + metricIndex].position.set(planePoints[0], planePoints[2], planePoints[1]);
+                scene.add(meshs['_sphere' + layerName + metricIndex]);
+
+                if (conf.displayValuesOnSphereHover) {
+                    meshs['_sphereHoverRegion' + layerName + metricIndex] = makeSphereFieldOfHover(layerName, metricIndex, planePoints);
+                    scene.add(meshs['_sphereHoverRegion' + layerName + metricIndex]);
+
+                    meshs['_text' + layerName + metricIndex] = makeSphereText(planePoints, metricValues);
+                    scene.add(meshs['_text' + layerName + metricIndex]);
                 }
-    
+
             }
-            
+
         }
     }
 

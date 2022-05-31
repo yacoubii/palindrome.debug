@@ -10,6 +10,7 @@ function initCamera() {
 }
 
 function initRenderer() {
+	
 	const renderer = new THREE.WebGLRenderer({
 		antialias: true,
 		alpha: true,
@@ -34,8 +35,8 @@ function initControls(camera, labelsRenderer) {
 
 function initScene() {
 	const scene = new THREE.Scene();
-	//scene.background = new THREE.Color(0xffffff);
-	scene.background = new THREE.Color( "#e3e3e3" );
+	scene.background = new THREE.Color(0xffffff);
+	//scene.background = new THREE.Color( "#e3e3e3" );
 	return scene;
 }
 
